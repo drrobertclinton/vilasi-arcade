@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vilasi Arcade</title>
+<meta name="description" content="Vilasi Arcade: nine free 3D games to play in your browser, on your own or with friends.">
+<meta name="theme-color" content="#1b2150">
+<meta property="og:title" content="Vilasi Arcade">
+<meta property="og:description" content="Nine free 3D games to play in your browser, on your own or with friends.">
+<meta property="og:image" content="https://vilasiarcade.com/thumbs/rubble-royale.jpg">
+<link rel="icon" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* layout: fixed top bar + left rail + tile grid, in the spirit of a mid-2010s game site; one light theme by choice */
+  color-scheme:light;
+  --bar:#1b2150; --bar-2:#272f6e; --page:#eceef6; --card:#ffffff; --ink:#171b34; --muted:#646b8a;
+  --volt:#ffc93c; --go:#22b96b; --go-dark:#17914f; --edge:#d5d9ea; --hot:#ff4d5e;
+  --display:"Bungee","Arial Black",Impact,sans-serif; --body:"Chakra Petch","Trebuchet MS",Verdana,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--page);color:var(--ink);font:500 16px/1.45 var(--body);overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--volt);outline-offset:2px}
+.app{display:grid;grid-template-rows:56px 1fr;height:100%}
+/* top bar */
+.bar{background:var(--bar);color:#fff;display:flex;align-items:center;gap:14px;padding:0 16px;min-width:0}
+.logo{font:400 22px/1 var(--display);letter-spacing:.5px;white-space:nowrap;display:flex;align-items:center;gap:8px;background:none;border:0;color:#fff;padding:0}
+.logo b{color:var(--volt);font-weight:400}
+.logo svg{flex:none}
+.bar nav{display:flex;gap:4px;margin-left:6px}
+.bar nav button{background:none;border:0;color:#cfd4ff;padding:8px 12px;border-radius:6px;font-weight:600}
+.bar nav button:hover,.bar nav button.on{background:var(--bar-2);color:#fff}
+.search{flex:1;min-width:0;max-width:420px;margin-left:auto}
+.search input{width:100%;height:34px;border-radius:6px;border:0;padding:0 12px;font:500 15px var(--body);background:#fff;color:var(--ink)}
+.me{display:flex;align-items:center;gap:8px;background:var(--bar-2);border:0;color:#fff;border-radius:20px;padding:5px 12px 5px 6px;font-weight:600;white-space:nowrap}
+.me i{width:24px;height:24px;border-radius:50%;border:2px solid #fff;display:block}
+/* body */
+.main{display:grid;grid-template-columns:190px 1fr;min-height:0}
+.rail{background:#fff;border-right:1px solid var(--edge);padding:14px 10px;display:flex;flex-direction:column;gap:4px;overflow:auto}
+.rail button{display:flex;align-items:center;gap:10px;background:none;border:0;text-align:left;padding:10px 12px;border-radius:8px;font-weight:600;color:var(--ink)}
+.rail button:hover{background:var(--page)}
+.rail button.on{background:var(--bar);color:#fff}
+.rail .dot{width:10px;height:10px;border-radius:3px;background:var(--volt);flex:none}
+.rail hr{border:0;border-top:1px solid var(--edge);margin:8px 4px;width:calc(100% - 8px)}
+.rail small{color:var(--muted);padding:6px 12px;font-size:12.5px;line-height:1.35}
+.view{overflow:auto;padding:22px 26px 40px;min-width:0}
+h1{font:400 26px/1.15 var(--display);margin:0 0 4px;text-wrap:balance}
+h2{font:700 19px/1.2 var(--body);margin:26px 0 12px}
+.sub{color:var(--muted);margin:0 0 18px;max-width:62ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px}
+.tile{background:var(--card);border:1px solid var(--edge);border-radius:10px;overflow:hidden;text-align:left;padding:0;display:flex;flex-direction:column;transition:transform .12s,box-shadow .12s}
+.tile:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(27,33,80,.16)}
+.thumb{aspect-ratio:16/10;width:100%;display:block;background:#333 center/cover}
+.tile .t{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
+.tile strong{font:700 17px/1.2 var(--body);color:var(--ink)}
+.tile span{color:var(--muted);font-size:14px}
+.meter{height:7px;border-radius:4px;background:#e3e6f2;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--go)}
+.lvl{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);font-weight:600}
+/* game page */
+.gp{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.9fr);gap:22px;align-items:start;max-width:1040px}
+.gp .thumb{border-radius:10px;border:1px solid var(--edge)}
+.gp aside{background:#fff;border:1px solid var(--edge);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.play{background:var(--go);border:0;border-bottom:4px solid var(--go-dark);color:#fff;font:400 22px/1 var(--display);padding:16px;border-radius:8px;letter-spacing:.5px}
+.play:hover{filter:brightness(1.07)}
+.levels{display:flex;flex-wrap:wrap;gap:8px}
+.levels button{width:46px;height:46px;border-radius:8px;border:2px solid var(--edge);background:#fff;font-weight:700}
+.levels button.on{border-color:var(--bar);background:var(--bar);color:#fff}
+.levels button:disabled{opacity:.45;cursor:not-allowed}
+.how{background:#fff;border:1px solid var(--edge);border-radius:10px;padding:16px 18px;margin-top:18px;max-width:1040px}
+.how h2{margin-top:0}
+.how li{margin:5px 0}
+.back{background:none;border:0;color:var(--muted);font-weight:600;padding:0;margin-bottom:10px}
+.kbd{display:inline-block;border:1px solid var(--edge);border-bottom-width:3px;border-radius:5px;padding:0 6px;font-size:13px;background:#fff;font-weight:700}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;max-width:900px}
+.card{background:#fff;border:1px solid var(--edge);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:8px}
+.card h3{font:400 20px/1.1 var(--display);margin:0}
+.card a.go{align-self:flex-start;background:var(--bar);color:#fff;text-decoration:none;font-weight:700;padding:9px 16px;border-radius:7px;margin-top:4px}
+.form{background:#fff;border:1px solid var(--edge);border-radius:10px;padding:18px;display:grid;gap:12px;max-width:640px}
+.form label{font-weight:700;display:grid;gap:5px}
+.form input,.form select,.form textarea{font:500 16px var(--body);border:2px solid var(--edge);border-radius:7px;padding:9px 10px;color:var(--ink);background:#fff;width:100%}
+.form textarea{min-height:120px;resize:vertical}
+.send{background:var(--bar);color:#fff;border:0;border-radius:7px;padding:11px 18px;font-weight:700;justify-self:start}
+.note{color:var(--muted);font-size:14px;margin:0}
+.sent{max-width:640px;margin-top:18px;display:grid;gap:8px}
+.sent div{background:#fff;border:1px solid var(--edge);border-radius:8px;padding:10px 12px}
+.sent b{display:block;font-size:13px;color:var(--muted)}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.swatches button{width:38px;height:38px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px var(--edge)}
+.swatches button.on{box-shadow:0 0 0 3px var(--ink)}
+/* the game stage covers everything while playing */
+#stage{position:fixed;inset:0;background:#000;display:none;z-index:50;font-family:var(--body);user-select:none;-webkit-user-select:none;touch-action:none}
+#stage.on{display:block}
+.vg-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.vg-hud{position:absolute;inset:0;pointer-events:none;color:#fff}
+.vg-hud button{pointer-events:auto}
+.vg-top{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:10px;align-items:center;justify-content:center}
+.vg-status{background:rgba(18,22,48,.78);border:2px solid rgba(255,255,255,.14);padding:7px 16px;border-radius:999px;font-weight:700;font-size:16px;max-width:min(760px,74vw);text-align:center}
+.vg-status:empty{display:none}
+.vg-btn{position:absolute;left:0;top:0;width:40px;height:40px;border-radius:10px;border:2px solid rgba(255,255,255,.2);background:rgba(18,22,48,.78);color:#fff;font-weight:700}
+.vg-score{position:absolute;top:60px;right:10px;display:grid;gap:4px;min-width:150px;font-size:14px}
+.vg-row{display:flex;align-items:center;gap:8px;background:rgba(18,22,48,.7);border-radius:7px;padding:4px 9px}
+.vg-row.me{outline:2px solid var(--volt)}
+.vg-row i{width:10px;height:10px;border-radius:50%;flex:none}
+.vg-row span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.vg-row b{font-variant-numeric:tabular-nums}
+.vg-announce{position:absolute;left:50%;top:22%;transform:translate(-50%,-50%) scale(.9);font:400 clamp(22px,4.2vw,44px)/1.1 var(--display);text-align:center;text-shadow:0 3px 0 rgba(18,22,48,.9),0 0 22px rgba(0,0,0,.5);opacity:0;transition:opacity .25s,transform .25s;max-width:90vw;text-wrap:balance}
+.vg-announce.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.vg-cross{position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border:2px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.vg-hurt{position:absolute;inset:0;box-shadow:inset 0 0 120px 30px rgba(255,60,80,.55);opacity:0}
+.vg-hurt.on{animation:vghurt .45s ease-out}
+@keyframes vghurt{from{opacity:1}to{opacity:0}}
+.vg-hp{position:absolute;left:14px;bottom:14px;display:flex;align-items:center;gap:8px;background:rgba(18,22,48,.78);padding:8px 12px;border-radius:12px;font-weight:700}
+.vg-hpbar{width:150px;height:14px;border-radius:7px;background:rgba(255,255,255,.18);overflow:hidden}
+.vg-hpbar i{display:block;height:100%;width:100%;background:var(--go);transition:width .15s}
+.vg-hp.low .vg-hpbar i{background:var(--hot)}
+.vg-hp b{min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
+.vg-tools{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:6px}
+.vg-tool{position:relative;min-width:82px;height:54px;border-radius:10px;border:2px solid rgba(255,255,255,.18);background:rgba(18,22,48,.78);color:#fff;font-weight:600;font-size:13px;padding:14px 6px 4px;overflow:hidden}
+.vg-tool em{position:absolute;left:6px;top:3px;font-style:normal;font-size:12px;color:var(--volt);font-weight:700}
+.vg-tool.on{border-color:var(--volt);background:rgba(60,70,150,.9)}
+.vg-tool u{position:absolute;left:0;bottom:0;height:4px;background:var(--volt);width:0}
+.vg-hint{position:absolute;left:50%;bottom:80px;transform:translateX(-50%);background:rgba(18,22,48,.78);padding:6px 14px;border-radius:999px;font-size:14px;white-space:nowrap}
+.vg-touch{display:none}
+.vg-touch.on{display:block}
+.vg-stick{position:absolute;width:120px;height:120px;border-radius:50%;border:3px solid rgba(255,255,255,.35);display:none}
+.vg-stick i{position:absolute;left:36px;top:36px;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.6)}
+.vg-tbtn{position:absolute;right:18px;width:78px;height:78px;border-radius:50%;border:3px solid rgba(255,255,255,.5);background:rgba(18,22,48,.6);color:#fff;font-weight:700}
+.vg-jump{bottom:92px}
+.vg-fire{bottom:184px;right:70px}
+.vg-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(18,22,48,.94);border:3px solid rgba(255,255,255,.16);border-radius:18px;padding:26px 28px;display:none;flex-direction:column;gap:12px;align-items:stretch;min-width:min(380px,88vw);max-width:92vw;text-align:center;pointer-events:auto}
+.vg-panel.on{display:flex}
+.vg-panel h2{font:400 30px/1.1 var(--display);margin:0 0 4px;color:#fff;text-wrap:balance}
+.vg-end.win h2{color:var(--volt)}
+.vg-lines p{margin:3px 0;color:#d6daf5}
+.vg-stars{display:flex;justify-content:center;gap:10px}
+.vg-stars:empty{display:none}
+.vg-stars i{width:34px;height:34px;background:#3a4273;clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
+.vg-stars i.on{background:var(--volt)}
+.vg-endbtns{display:grid;gap:10px;margin-top:6px}
+.vg-big{background:#2c3577;border:0;border-bottom:4px solid #1d2456;color:#fff;font-weight:700;font-size:17px;padding:13px 18px;border-radius:10px}
+.vg-big.main{background:var(--go);border-bottom-color:var(--go-dark)}
+.vg-big:hover{filter:brightness(1.12)}
+@media (max-width:760px){
+  .main{grid-template-columns:1fr}
+  .rail{flex-direction:row;border-right:0;border-bottom:1px solid var(--edge);padding:8px 10px;overflow-x:auto}
+  .rail hr,.rail small{display:none}
+  .rail button{white-space:nowrap;padding:8px 10px}
+  .bar nav{display:none}
+  .view{padding:16px}
+  .gp{grid-template-columns:1fr}
+  .vg-tool{min-width:60px;font-size:11px}
+  .vg-hpbar{width:90px}
+  .vg-tools{bottom:74px}
+}
+/* playing with friends */
+.code{font:400 44px/1 var(--display);letter-spacing:.14em;color:var(--bar);background:var(--volt);display:inline-block;padding:12px 18px 10px;border-radius:12px}
+.people{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
+.people li{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--edge);border-radius:10px;padding:9px 12px;font-weight:600}
+.people li i{width:16px;height:16px;border-radius:50%;flex:none}
+.people li em{margin-left:auto;font-style:normal;font-weight:500;color:var(--muted);font-size:14px}
+.pickrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:10px 0 16px}
+.pickrow button{background:var(--card);border:2px solid var(--edge);border-radius:10px;padding:10px 12px;text-align:left;font-weight:600;min-height:48px}
+.pickrow button.on{border-color:var(--go);background:#e8f8ef}
+.joinrow{display:flex;gap:8px;flex-wrap:wrap}
+.joinrow input{font:400 22px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;width:150px;padding:10px 12px;border:2px solid var(--edge);border-radius:10px}
+.plain{background:none;border:0;color:var(--muted);text-decoration:underline;padding:8px 0;margin-top:14px}
+#count{position:fixed;inset:0;z-index:70;display:none;place-items:center;background:rgba(15,18,48,.86);color:#fff;text-align:center;font:400 30px/1.3 var(--display);padding:24px}
+#count.on{display:grid}
+#count b{display:block;font-size:84px;color:var(--volt);margin-top:10px}
+.vg-party{position:absolute;left:12px;top:64px;display:grid;gap:4px;font:600 13px/1.2 var(--body);color:#fff;pointer-events:none}
+.vg-party div{display:flex;align-items:center;gap:6px;background:rgba(15,18,48,.62);border-radius:8px;padding:4px 8px}
+.vg-party i{width:10px;height:10px;border-radius:50%}
+.vg-party b{margin-left:8px;font-weight:700;color:var(--volt)}
+@media (prefers-reduced-motion:reduce){.tile{transition:none}.vg-announce{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <button class="logo" type="button" id="home" aria-label="Vilasi Arcade home">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><path d="M15 1 4 15h7l-2 10 12-15h-7z" fill="#ffc93c"/></svg>
+      <span>VILASI <b>ARCADE</b></span>
+    </button>
+    <nav aria-label="Sections">
+      <button type="button" data-go="">Games</button>
+      <button type="button" data-go="friends">Play with friends</button>
+      <button type="button" data-go="more-games">More games</button>
+      <button type="button" data-go="ideas-box">Ideas box</button>
+    </nav>
+    <div class="search"><input id="search" type="search" placeholder="Search games" aria-label="Search games"></div>
+    <button class="me" type="button" id="me"><i id="meDot"></i><span id="meName">Player</span></button>
+  </header>
+  <div class="main">
+    <aside class="rail" aria-label="Menu">
+      <button type="button" data-go=""><span class="dot"></span>Games</button>
+      <button type="button" data-go="friends"><span class="dot" style="background:#ffc93c"></span>Play with friends</button>
+      <button type="button" data-go="my-player"><span class="dot" style="background:#3d8bff"></span>My player</button>
+      <button type="button" data-go="more-games"><span class="dot" style="background:#ff6fb5"></span>More games</button>
+      <button type="button" data-go="ideas-box"><span class="dot" style="background:#22b96b"></span>Ideas box</button>
+      <hr>
+      <button type="button" id="sound"><span class="dot" style="background:#a56bff"></span><span id="soundTxt">Sound: on</span></button>
+      <small id="railNote">Nine games. Play on your own against computer players, or start a party and play with friends.</small>
+    </aside>
+    <main class="view" id="view"></main>
+  </div>
+</div>
+<div id="stage"></div>
+<div id="count" role="status" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="engine.js"></script>
+<script src="net.js"></script>
+<script src="games/wreck-island.js"></script>
+<script src="games/hull-breach.js"></script>
+<script src="games/nine-rooms.js"></script>
+<script src="games/rubble-royale.js"></script>
+<script src="games/skyline-sprint.js"></script>
+<script src="games/steal-a-creator.js"></script>
+<script src="games/grow-a-kaiju.js"></script>
+<script src="games/last-elevator.js"></script>
+<script src="games/mountain-nights.js"></script>
+<script>
+(function(){
+'use strict';
+var view=document.getElementById('view');
+var COLORS=[0x3d8bff,0xff4d5e,0x35d07f,0xffc93c,0xa56bff,0xff8a3c,0x22c9c2,0xff6fb5];
+var store={get:function(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+var profile=store.get('va_profile',{name:'Player',color:COLORS[0]});
+var progress=store.get('va_progress',{});
+var sound=store.get('va_sound',true);
+VG.profile=profile;VG.stage=document.getElementById('stage');VG.sfx.on=sound;
+function hex(n){return '#'+('000000'+n.toString(16)).slice(-6);}
+function esc(s){return VG.esc(s);}
+function prog(id){return progress[id]||(progress[id]={unlocked:1,stars:{},wins:0});}
+function starsOf(id){var p=prog(id),t=0;for(var k in p.stars)t+=p.stars[k];return t;}
+VG.onResult=function(id,level,r){var p=prog(id),def=VG.byId[id];
+  if(r.win){p.wins++;var s=r.stars==null?1:r.stars;if(!(p.stars[level]>=s))p.stars[level]=s;if(level>=p.unlocked&&level<(def.levels||1))p.unlocked=level+1;}
+  store.set('va_progress',progress);};
+VG.onExit=function(){if(VG.net.code)go('friends');else render();};
+function thumbStyle(def){return 'background-image:url(thumbs/'+def.id+'.jpg),linear-gradient(135deg,'+hex(def.color||0x3d8bff)+',#1b2150)';}
+
+function home(filter){
+  var list=VG.games.filter(function(g){return !filter||(g.name+' '+g.tagline).toLowerCase().indexOf(filter)>=0;});
+  var h='<h1>Games</h1><p class="sub">Pick a game and play. Earn up to three stars on each.</p><div class="grid">';
+  list.forEach(function(g){var p=prog(g.id),max=3,st=starsOf(g.id);
+    h+='<button class="tile" type="button" data-game="'+g.id+'"><span class="thumb" style="'+thumbStyle(g)+'"></span><span class="t"><strong>'+esc(g.name)+'</strong><span>'+esc(g.tagline)+'</span>'+
+      '<span class="meter"><i style="width:'+(st/max*100)+'%"></i></span><span class="lvl"><span>'+st+' / '+max+' stars</span></span></span></button>';});
+  h+='</div>';if(!list.length)h+='<p class="sub">No game matches that search.</p>';
+  view.innerHTML=h;
+}
+function gamePage(id){
+  var g=VG.byId[id];if(!g){home();return;}var p=prog(id);
+  var h='<button class="back" type="button" data-go="">&larr; All games</button><div class="gp"><div><span class="thumb" style="'+thumbStyle(g)+'"></span></div><aside><div><h1>'+esc(g.name)+'</h1><p class="sub" style="margin:0">'+esc(g.tagline)+'</p></div>'+
+    '<button class="play" type="button" id="playBtn">PLAY</button><button class="send" type="button" id="withBtn">Play with friends</button>';
+  h+='<p class="note">'+starsOf(id)+' of 3 stars earned. Wins: '+p.wins+'.</p></aside></div>'+
+    '<section class="how"><h2>How to play</h2><ul>'+(g.howTo||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+
+    '<p class="note">Move with <span class="kbd">W</span> <span class="kbd">A</span> <span class="kbd">S</span> <span class="kbd">D</span>, jump with <span class="kbd">Space</span>, aim with the mouse and click to use your tool. Number keys switch tools. On a phone or tablet, drag the left side to move and the right side to look.</p></section>';
+  view.innerHTML=h;
+  document.getElementById('playBtn').addEventListener('click',function(){VG.play(id);});
+  document.getElementById('withBtn').addEventListener('click',function(){wantGame=id;if(VG.net.code&&VG.net.isHost())VG.net.pick(id);go('friends');});
+}
+function moreGames(){
+  view.innerHTML='<h1>More games</h1><p class="sub">Other games from the same family. Each opens in its own page.</p><div class="cards">'+
+    '<div class="card"><h3>Bolt Squad</h3><p class="note">A social-deduction party game to play with friends.</p><a class="go" href="https://boltsquadgames.com" target="_blank" rel="noopener">Open Bolt Squad</a><p class="note">boltsquadgames.com</p></div>'+
+    '<div class="card"><h3>Vilasi Dash</h3><p class="note">Jump to the beat with Blip. Build and share your own levels.</p><p class="note">Coming to this site soon.</p></div></div>'+
+    '<h2 style="margin-top:28px">On Roblox</h2><p class="sub">Our Roblox games. They open in the Roblox app or website. Right now only invited testers can join.</p><div class="cards">'+
+    '<div class="card"><h3>Catastrophe Survival</h3><p class="note">Survive 17 disasters across 6 maps. Last one standing wins.</p><a class="go" href="https://www.roblox.com/games/93223302508270" target="_blank" rel="noopener">Play on Roblox</a></div>'+
+    '<div class="card"><h3>Rocket Wars</h3><p class="note">Team battle in space. Blow up the enemy rockets\' power cores.</p><a class="go" href="https://www.roblox.com/games/105645650381141" target="_blank" rel="noopener">Play on Roblox</a></div>'+
+    '<div class="card"><h3>Last Elevator</h3><p class="note">Ride up 10 crazy floors with friends. Don\'t miss the elevator!</p><a class="go" href="https://www.roblox.com/games/128600039633324" target="_blank" rel="noopener">Play on Roblox</a></div>'+
+    '<div class="card"><h3>Grow a Kaiju</h3><p class="note">Hatch eggs, feed your baby kaiju until it becomes a Titan, and battle in the volcano arena.</p><a class="go" href="https://www.roblox.com/games/72049695436571" target="_blank" rel="noopener">Play on Roblox</a></div>'+
+    '<div class="card"><h3>Steal a Creator</h3><p class="note">Buy creators for your base to earn cash, and steal the best ones from other players.</p><a class="go" href="https://www.roblox.com/games/103853416023538" target="_blank" rel="noopener">Play on Roblox</a></div>'+
+    '<div class="card"><h3>Rubble Royale</h3><p class="note">Everyone for themselves on floating islands. First to 10 knockouts wins.</p><a class="go" href="https://www.roblox.com/games/94176592615922" target="_blank" rel="noopener">Play on Roblox</a></div>'+
+    '<div class="card"><h3>Skyline Sprint</h3><p class="note">Race across the rooftops to the gold finish pad. A new course every round.</p><a class="go" href="https://www.roblox.com/games/91963684954286" target="_blank" rel="noopener">Play on Roblox</a></div>'+
+    '<div class="card"><h3>Mystery Game</h3><p class="note">Find the murderer before it\'s too late.</p><a class="go" href="https://www.roblox.com/games/138376319154344" target="_blank" rel="noopener">Play on Roblox</a></div>'+
+    '</div>';
+}
+function myPlayer(){
+  var h='<h1>My player</h1><p class="sub">Your name floats above your character in every game.</p><div class="form"><label for="pname">Name<input id="pname" maxlength="14" value="'+esc(profile.name)+'"></label><div><strong>Color</strong><div class="swatches" style="margin-top:8px">';
+  COLORS.forEach(function(c){h+='<button type="button" data-color="'+c+'" aria-label="Color '+hex(c)+'" style="background:'+hex(c)+'"'+(c===profile.color?' class="on"':'')+'></button>';});
+  h+='</div></div><p class="note">Saved on this device.</p></div>';view.innerHTML=h;
+  document.getElementById('pname').addEventListener('input',function(e){profile.name=e.target.value.trim()||'Player';saveProfile();});
+  view.querySelectorAll('[data-color]').forEach(function(b){b.addEventListener('click',function(){profile.color=+b.getAttribute('data-color');saveProfile();myPlayer();});});
+}
+function saveProfile(){store.set('va_profile',profile);paintMe();VG.net.hello();}
+function paintMe(){document.getElementById('meDot').style.background=hex(profile.color);document.getElementById('meName').textContent=profile.name;}
+
+/* ideas box: saved to the shared list when the page can reach it, otherwise kept on this device */
+var db=null,dbTried=false,ideasLocal=store.get('va_ideas',[]);
+function getDb(){if(dbTried)return Promise.resolve(db);dbTried=true;if(!window.claude||!window.claude.use)return Promise.resolve(null);
+  return Promise.race([window.claude.use('db'),new Promise(function(r){setTimeout(function(){r(null);},10000);})]).then(function(d){db=d;return d;}).catch(function(){return null;});}
+function ideasBox(msg){
+  var h='<h1>Ideas box</h1><p class="sub">Found a bug? Want a new map, tool or game? Write it here and it goes to the people building the arcade.</p>'+
+    '<form class="form" id="ideaForm"><label for="ifrom">Your name<input id="ifrom" maxlength="30" value="'+esc(profile.name)+'"></label>'+
+    '<label for="igame">Which game?<select id="igame"><option>The whole arcade</option>'+VG.games.map(function(g){return '<option>'+esc(g.name)+'</option>';}).join('')+'</select></label>'+
+    '<label for="itext">Your idea or bug<textarea id="itext" maxlength="1500" required placeholder="What should change?"></textarea></label>'+
+    '<button class="send" type="submit">Send idea</button><p class="note" id="istat" role="status">'+(msg?esc(msg):'')+'</p></form><div class="sent" id="isent"></div>';
+  view.innerHTML=h;paintSent();
+  document.getElementById('ideaForm').addEventListener('submit',function(e){e.preventDefault();
+    var text=document.getElementById('itext').value.trim();if(!text)return;
+    var idea={from:document.getElementById('ifrom').value.trim()||'Player',game:document.getElementById('igame').value,text:text,at:new Date().toISOString(),sent:false};
+    var stat=document.getElementById('istat');stat.textContent='Sending...';
+    getDb().then(function(d){if(!d)return VG.net.sendIdea(idea);var id='i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      return d.doc('ideas/'+id).set({from:idea.from,game:idea.game,text:idea.text,at:idea.at});})
+    .then(function(){idea.sent=true;done('Sent. Thank you!');},function(){done('Saved on this device only. It could not be sent from here.');});
+    function done(m){ideasLocal.unshift(idea);ideasLocal=ideasLocal.slice(0,30);store.set('va_ideas',ideasLocal);ideasBox(m);}
+  });
+}
+function paintSent(){var el=document.getElementById('isent');if(!el)return;
+  el.innerHTML=ideasLocal.length?'<h2 style="margin:8px 0 0">Your ideas from this device</h2>'+ideasLocal.map(function(i){return '<div><b>'+esc(i.game)+' &middot; '+esc(i.from)+' &middot; '+(i.sent?'sent':'not sent')+'</b>'+esc(i.text)+'</div>';}).join(''):'';}
+
+/* play with friends: start a party, share the four-letter code, the party leader picks the game */
+var wantGame=null,N=VG.net;
+function friends(){
+  N.init();var h='<h1>Play with friends</h1>';
+  if(!N._done){h+='<p class="sub">Getting ready...</p>';view.innerHTML=h;return;}
+  if(!N.ok){h+='<p class="sub">Could not connect to the party server.</p><div class="cards"><div class="card"><h3>Try again</h3><p class="note">Check your internet connection, then reload this page.</p><p class="note">You can still play every game on your own against computer players.</p></div></div>';view.innerHTML=h;return;}
+  if(!N.code){
+    var ps=N.parties();
+    h+='<p class="sub">Start a party and tell your friends the code, or join a friend\'s party. Everyone needs Vilasi Arcade open.</p><div class="cards">'+
+      '<div class="card"><h3>Start a party</h3><p class="note">You become the party leader and pick the games.</p><button class="play" type="button" id="mkParty">START A PARTY</button></div>'+
+      '<div class="card"><h3>Join a party</h3><p class="note">Type the four letters your friend gives you.</p><form class="joinrow" id="joinForm"><input id="jcode" maxlength="4" autocomplete="off" autocapitalize="characters" aria-label="Party code" placeholder="ABCD"><button class="send" type="submit">Join</button></form><p class="note" id="jmsg" role="status"></p></div></div>';
+    if(ps.length){h+='<h2>Parties open right now</h2><ul class="people">';ps.forEach(function(p){h+='<li><span>'+esc(p.leader||'A friend')+'\'s party &middot; '+p.count+(p.count===1?' player':' players')+(p.game&&VG.byId[p.game]?' &middot; playing '+esc(VG.byId[p.game].name):'')+'</span><em><button class="send" type="button" data-join="'+esc(p.code)+'">Join '+esc(p.code)+'</button></em></li>';});h+='</ul>';}
+    view.innerHTML=h;
+    document.getElementById('mkParty').addEventListener('click',function(){N.create();if(wantGame)N.pick(wantGame);});
+    document.getElementById('joinForm').addEventListener('submit',function(e){e.preventDefault();if(!N.join(document.getElementById('jcode').value))document.getElementById('jmsg').textContent='A party code is four letters.';});
+    view.querySelectorAll('[data-join]').forEach(function(b){b.addEventListener('click',function(){N.join(b.getAttribute('data-join'));});});
+    return;
+  }
+  var mem=N.members(),host=N.host(),lead=N.isHost(),pt=host?(host.peer===N.myPeer?N.pt:(host.presence.pt||{})):{},picked=pt.g&&VG.byId[pt.g]?pt.g:null;
+  h+='<p class="sub">Tell your friends this code. They choose Play with friends, then Join a party.</p><div class="code" aria-label="Party code">'+esc(N.code)+'</div>'+
+    '<h2>In this party</h2><ul class="people">';
+  mem.forEach(function(p){var u=p.presence&&p.presence.u||{},me=p.peer===N.myPeer,t=me?N.pt:(p.presence.pt||{});
+    h+='<li><i style="background:'+hex(typeof u.c==='number'?u.c:0x3d8bff)+'"></i><span>'+esc(me?profile.name:String(u.n||'Player').slice(0,14))+(me?' (you)':'')+'</span><em>'+(host&&host.peer===p.peer?'Party leader':'')+((p.presence&&p.presence.s)?' &middot; in a round':'')+'</em></li>';});
+  h+='</ul>';
+  if(mem.length<2)h+='<p class="note">Waiting for friends to join. You can start now and they can jump in when they arrive.</p>';
+  if(lead){
+    h+='<h2>Pick a game</h2><div class="pickrow">';VG.games.forEach(function(g){h+='<button type="button" data-pick="'+g.id+'"'+(g.id===picked?' class="on" aria-pressed="true"':' aria-pressed="false"')+'>'+esc(g.name)+'</button>';});
+    h+='</div><button class="play" type="button" id="startBtn"'+(picked?'':' disabled')+'>'+(picked?'START '+esc(VG.byId[picked].name.toUpperCase()):'PICK A GAME')+'</button>';
+  }else h+='<h2>'+(picked?esc(VG.byId[picked].name):'Waiting')+'</h2><p class="note">'+(picked?'The party leader picked this game. It starts on every device when they press Start.':'The party leader is picking a game.')+'</p>';
+  h+='<div><button class="plain" type="button" id="leaveBtn">Leave this party</button></div>';
+  view.innerHTML=h;
+  view.querySelectorAll('[data-pick]').forEach(function(b){b.addEventListener('click',function(){N.pick(b.getAttribute('data-pick'));});});
+  var sb=document.getElementById('startBtn');if(sb)sb.addEventListener('click',function(){if(picked)N.start(picked);});
+  document.getElementById('leaveBtn').addEventListener('click',function(){N.leave();});
+}
+N.onChange=function(){N._done=true;if(route()==='friends'&&!VG.current){var a=document.activeElement;if(a&&a.id==='jcode'&&!N.code)return;friends();}};
+N.onCountdown=function(go,ms){var el=document.getElementById('count');if(!go){el.classList.remove('on');return;}
+  var g=VG.byId[go.g],n=3;el.innerHTML='Starting '+esc(g?g.name:'the game')+'<b>3</b>';el.classList.add('on');
+  var t=setInterval(function(){n--;var b=el.querySelector('b');if(n<1||!el.classList.contains('on')){clearInterval(t);return;}if(b)b.textContent=n;},ms/3);};
+function route(){var h=(location.hash||'').replace(/^#/,'');return h;}
+function render(){
+  var h=route(),q=document.getElementById('search').value.trim().toLowerCase();
+  document.querySelectorAll('[data-go]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-go')===h||(h.indexOf('play-')===0&&b.getAttribute('data-go')===''));});
+  if(h.indexOf('play-')===0)gamePage(h.slice(5));else if(h==='more-games')moreGames();else if(h==='ideas-box')ideasBox();else if(h==='my-player')myPlayer();else if(h==='friends')friends();else home(q);
+  view.scrollTop=0;
+}
+function go(h){if(route()===h)render();else location.hash=h;}
+document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-go],[data-game]');if(!t)return;
+  if(t.hasAttribute('data-game'))go('play-'+t.getAttribute('data-game'));else go(t.getAttribute('data-go'));});
+document.getElementById('home').addEventListener('click',function(){go('');});
+document.getElementById('me').addEventListener('click',function(){go('my-player');});
+document.getElementById('search').addEventListener('input',function(){if(route()==='')render();else go('');});
+document.getElementById('sound').addEventListener('click',function(){sound=!sound;VG.sfx.on=sound;store.set('va_sound',sound);document.getElementById('soundTxt').textContent='Sound: '+(sound?'on':'off');});
+document.getElementById('soundTxt').textContent='Sound: '+(sound?'on':'off');
+window.addEventListener('hashchange',render);
+paintMe();render();VG.net.init();
+})();
+</script>
+</body>
+</html>
