@@ -348,14 +348,20 @@ VG.register({
       try{const c=s.ctx,t=c.currentTime;[[988,0],[740,0.2]].forEach(a=>{const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=a[0];
         g.gain.setValueAtTime(0.0001,t+a[1]);g.gain.exponentialRampToValueAtTime(0.09,t+a[1]+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+a[1]+0.7);
         o.connect(g);g.connect(c.destination);o.start(t+a[1]);o.stop(t+a[1]+0.75);});}catch(e){}}
+    /* party: one elevator for everyone. The round host runs the floors and the doors; each floor is built from the shared seed so it is the same on every screen */
+    const net=E.net&&E.net.cur?E.net:null;
+    const mul=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let q=Math.imul(a^a>>>15,1|a);q=q+Math.imul(q^q>>>7,61|q)^q;return((q^q>>>14)>>>0)/4294967296;};
+    const led=()=>!!(net&&net.live&&!net.amRH&&net.gAge()<1.5);
+    const mineOk=()=>{const d=P.data;return d.out?2:(P.alive&&!d.pending&&inCar(P)&&d.n>=fl.need)?1:0;};
     function startFloor(i){
       teardown();fi=i;fl=FL[i];S={boxes:[],objs:[],picks:[],shots:[],pts:[],upd:null,ai:null,target:null,rowAI:null,beacon:null};
       const th=fl.th;E.setSky.apply(E,th.sky);E.setLight(th.light[0],th.light[1],th.light[2]);W.killY=th.kill||-9;
-      fl.build(th);
+      if(net){const rr=Math.random;Math.random=mul((net.cur.seed^Math.imul(i+1,0x9E3779B1))|0);try{fl.build(th);}finally{Math.random=rr;}}else fl.build(th);
       for(const c of riders){const d=c.data;if(d.out)continue;d.n=0;d.wi=0;d.ct=null;d.fT=0;d.vx=null;d.noJ=0;if(i>0)d.lives=Math.min(d.max,d.lives+1);}
       syncHp();ph='ride';pt=3.0;ct=0;
     }
-    function allAboard(){let k=0;for(const c of riders){const d=c.data;if(d.out)continue;if(!c.alive||d.pending||!inCar(c)||d.n<fl.need)return false;k++;}return k>0;}
+    function allAboard(){let k=0;for(const c of riders){const d=c.data;if(d.out)continue;if(!c.alive||d.pending||!inCar(c)||d.n<fl.need)return false;k++;}
+      if(net)for(const c of E.remotes){if(c.netX===2)continue;if(c.netX!==1)return false;k++;}return k>0;}
     function closeDoors(){ph='closing';ct=0;evald=false;E.sfx('alarm');E.announce('Doors closing!',1.4);}
     function markOut(c){const d=c.data;if(d.out)return;d.out=true;if(c===P){if(!lostWhy)lostWhy='hearts';scheduleLose();}}
     let loseSet=false;
@@ -419,28 +425,31 @@ VG.register({
     }
 
     /* ------------------------------------------------------------ the loop */
+    let botsOut=false;
     function update(dt){
       if(E.over)return;
+      if(net&&!botsOut){botsOut=true;for(const c of bots)if(c.removed)c.data.out=true;}
       /* phases */
       pt-=dt;
       if(ph==='ride'){
         E.shake(0.05);
         if(shown!==fi&&pt<1.5){showFloor(fi,true);E.sfx('tick');}
         if(shown<0){showFloor(0,true);}
-        if(pt<=0){showFloor(fi,false);ph='opening';pt=1.1;ding();E.announce('Floor '+(fi+1)+': '+fl.name,2.6);E.sfx('pickup');}
+        if(pt<=0&&!led()){showFloor(fi,false);ph='opening';pt=1.1;ding();E.announce('Floor '+(fi+1)+': '+fl.name,2.6);E.sfx('pickup');}
       }else if(ph==='opening'){
         setDoors(doorT+dt/1.1);
-        if(doorT>=1&&pt<=0){ph='play';tl=fl.time;elapsed=0;warned=0;aboard=0;ticker=-1;E.announce(fl.goal,3.4);}
+        if(doorT>=1&&pt<=0&&!led()){ph='play';tl=fl.time;elapsed=0;warned=0;aboard=0;ticker=-1;E.announce(fl.goal,3.4);}
       }else if(ph==='play'){
         tl-=dt;elapsed+=dt;
         if(tl<=5.5&&!warned){warned=1;E.announce('Doors closing soon!',1.5);E.sfx('alarm');}
         const sec=Math.ceil(tl);if(tl<=4&&sec!==ticker){ticker=sec;E.sfx('tick');}
-        if(elapsed>4&&allAboard()){aboard+=dt;if(aboard>0.9){E.announce('All aboard!',1.2);closeDoors();}}else aboard=0;
-        if(tl<=0)closeDoors();
+        if(led()){if(tl<0.05)tl=0.05;}
+        else{if(elapsed>4&&allAboard()){aboard+=dt;if(aboard>0.9){E.announce('All aboard!',1.2);closeDoors();}}else aboard=0;
+        if(tl<=0)closeDoors();}
       }else if(ph==='closing'){
         ct+=dt;setDoors(doorT-dt/1.3);
         if(!evald&&ct>=1.0){evald=true;evaluate();}
-        if(doorT<=0&&evald){
+        if(doorT<=0&&evald&&(P.data.out||!led())){
           if(P.data.out){ph='end';}
           else if(fi>=TOTAL-1){ph='end';E.after(1.0,win);}
           else startFloor(fi+1);
@@ -458,7 +467,7 @@ VG.register({
       /* computer riders */
       for(const c of bots)if(c.alive&&!c.data.out)drive(c,c.data.skill,dt);
       /* hud */
-      let alive=0;for(const c of riders)if(!c.data.out)alive++;
+      let alive=0;for(const c of riders)if(!c.data.out)alive++;if(net)for(const c of E.remotes)if(c.netX!==2)alive++;
       const d=P.data,got=d.n>=fl.need;
       let line;
       if(ph==='play')line='Floor '+(fi+1)+' of '+TOTAL+': '+fl.name+'   Time '+E.fmt(tl)+'   '+(fl.need>1?('Coins '+Math.min(d.n,fl.need)+' of '+fl.need+(got?'. Back to the elevator!':'')):(got?'Star found. Back to the elevator!':'Touch the star'));
@@ -469,8 +478,36 @@ VG.register({
     }
 
     startFloor(0);pt=2.5;
+    let lastSt=null,follow=null;
+    function enter(p2){ /* follow the round host into a new part of the floor */
+      ph=p2;
+      if(p2==='ride'){setDoors(0);}
+      else if(p2==='opening'){showFloor(fi,false);ding();E.announce('Floor '+(fi+1)+': '+fl.name,2.6);}
+      else if(p2==='play'){showFloor(fi,false);setDoors(1);elapsed=5;warned=0;aboard=0;ticker=-1;E.announce(fl.goal,3.4);}
+      else if(p2==='closing'){ct=0;evald=false;E.sfx('alarm');E.announce('Doors closing!',1.4);}
+    }
     return {
       update,
+      netMine(){return mineOk();},
+      netState(){return (E.over||ph==='end')?null:{fi,ph,pt:Math.round(pt*10)/10,tl:Math.round(tl*10)/10};},
+      netApply(st){if(!st||typeof st!=='object')return;lastSt=st;if(E.over||P.data.out)return;follow(st);},
+      _f:(follow=function(st){
+        const f=st.fi|0,p2=st.ph;if(f<0||f>=TOTAL||['ride','opening','play','closing'].indexOf(p2)<0)return;
+        if(f!==fi){const keep=P.data.lives;startFloor(f);P.data.lives=Math.max(keep,P.data.lives);syncHp();
+          if(!inCar(P)||!P.alive){if(!P.alive)E.respawn(P,0,0.05,7.6,1.5);else P.teleport(0,0.05,7.6);}
+          if(p2!=='ride')enter(p2);}
+        else if(p2!==ph)enter(p2);
+        if(Math.abs(pt-(+st.pt||0))>0.5)pt=+st.pt||0;
+        if(ph==='play'&&Math.abs(tl-(+st.tl||0))>0.5)tl=+st.tl||0;
+      }),
+      /* after losing in a party: step back into the elevator the others are riding instead of starting everyone over */
+      rejoin(){
+        const d=P.data;over=false;loseSet=false;lostWhy='';d.out=false;d.final=false;d.pending=false;d.lives=d.max;d.vx=null;
+        if(P.alive)P.teleport(0,0.05,7.6);else E.respawn(P,0,0.05,7.6,2.5);P.yaw=Math.PI;
+        if(lastSt){if(ph==='end')ph='';follow(lastSt);}else if(ph==='end'){ph='ride';pt=1;}
+        if(!inCar(P))P.teleport(0,0.05,7.6);d.n=fl.need;syncHp();
+        E.announce('Back in the elevator!',2);
+      },
       autopilot(dt){if(!P.brain){P.brain=new VG.Brain(P,E);P.brain.arrive=1;}drive(P,1,dt);},
       canDamage(){return false;},
       onDeath(c,by){

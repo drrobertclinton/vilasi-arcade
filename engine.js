@@ -424,6 +424,8 @@ class Engine{
   /* end the round. r: {win, title, lines:[...], stars(0-3)} */
   finish(r){if(this.over)return;this.over=true;this.sfx(r.win?'win':'lose');try{document.exitPointerLock&&document.exitPointerLock();}catch(e){}
     if(VG.onResult)VG.onResult(this.def.id,this.level,r);this.hud.end(r);}
+  /* undo a lost round for this player only (party play): the game puts the player back in */
+  revive(){if(!this.over||!this.game||!this.game.rejoin)return;this.over=false;this.hud.$.end.classList.remove('on');try{this.game.rejoin();}catch(e){console.error(e);}}
   /* ---- frame */
   _loop(now){
     if(this._dead)return;this._raf=requestAnimationFrame(t=>this._loop(t));
@@ -569,7 +571,11 @@ class Hud{
     e.querySelector('.vg-stars').innerHTML=r.stars!=null?[1,2,3].map(i=>'<i class="'+(i<=r.stars?'on':'')+'"></i>').join(''):'';
     e.querySelector('.vg-lines').innerHTML=(r.lines||[]).map(l=>'<p>'+esc(l)+'</p>').join('');const bx=e.querySelector('.vg-endbtns');bx.innerHTML='';
     const btn=(label,fn,main)=>{const b=document.createElement('button');b.type='button';b.className='vg-big'+(main?' main':'');b.textContent=label;b.addEventListener('click',fn);bx.appendChild(b);};
-    if(E.net){if(E.net.isHost()){btn('Play again',()=>E.net.start(E.def.id),true);btn('Pick another game',()=>VG.exit());}
+    if(E.net&&!r.win&&E.game&&E.game.rejoin){
+      /* the rest of the party is still going: jump back in with them instead of starting the round over for everyone */
+      btn('Play again',()=>{if(E.net.othersPlaying()){E.revive();}else if(E.net.isHost())E.net.start(E.def.id);else{const w=e.querySelector('.vg-lines');w.innerHTML='<p>Everyone is out. The party leader can start the next round.</p>';}},true);
+      btn(E.net.isHost()?'Pick another game':'Back to party',()=>VG.exit());}
+    else if(E.net){if(E.net.isHost()){btn('Play again',()=>E.net.start(E.def.id),true);btn('Pick another game',()=>VG.exit());}
       else{const w=document.createElement('p');w.textContent='The party leader can start the next round.';e.querySelector('.vg-lines').appendChild(w);btn('Back to party',()=>VG.exit(),true);}}
     else{btn(r.win?'Play again':'Try again',()=>VG.play(E.def.id),true);btn('Back to games',()=>VG.exit());}
     e.classList.add('on');}

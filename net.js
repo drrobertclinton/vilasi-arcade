@@ -133,6 +133,8 @@ N.created=function(E){N.live=true;for(const c of E.chars)if(c.isBot)N.dropBot(c)
 /* a game can tell the rest of the party something (send), and change the map without it being reported as broken blocks (quiet) */
 N.send=function(d){if(N.cur)emit({t:'g',d:d});};
 N.quiet=function(fn){N.applying++;try{fn();}finally{N.applying--;}};
+/* is anyone else in the party still playing this round? */
+N.othersPlaying=function(){if(!N.cur)return false;for(const p of N.peers()){if(p.peer===N.myPeer)continue;const pr=p.presence||{},s=pr.s;if(pr.pt&&pr.pt.code===N.code&&s&&s.r===N.cur.r&&!s.ov)return true;}return false;};
 N.gAge=function(){return (performance.now()-N.gT)/1000;};
 N.end=function(E){
   if(N.E!==E)return;N.E=null;N.cur=null;N.remotes=new Map();if(N.tr)N.tr.set({s:null,ev:null,b:null,g:null});N.ev=[];N.evT=[];
@@ -191,8 +193,8 @@ N.pre=function(dt){
     /* things that happened (hits, tool uses, knockouts) first, then where everyone is now */
     if(Array.isArray(pr.ev)){let lq=N.last[p.peer];if(lq==null){lq=0;for(const e of pr.ev)if(e&&e.q>lq&&e.r!==N.cur.r)lq=e.q;}
       for(const e of pr.ev){if(e&&e.q>lq){lq=e.q;try{handle(e,p.peer,fromHost);}catch(err){console.error(err);}}}N.last[p.peer]=lq;}
-    sync(c,+s.p[0]||0,+s.p[1]||0,+s.p[2]||0,+s.p[3]||0,s.hp,!!s.al,!!s.gr,s.tl,dt);c.kos=+s.ko||0;
-    if(fromHost&&!amHost&&pr.g&&E.game&&E.game.netApply&&!E.over){N.gT=now;try{E.game.netApply(pr.g);}catch(err){console.error(err);}}
+    sync(c,+s.p[0]||0,+s.p[1]||0,+s.p[2]||0,+s.p[3]||0,s.hp,!!s.al,!!s.gr,s.tl,dt);c.kos=+s.ko||0;c.netX=s.x;c.netOver=!!s.ov;
+    if(fromHost&&!amHost&&pr.g&&E.game&&E.game.netApply){N.gT=now;try{E.game.netApply(pr.g);}catch(err){console.error(err);}}
     if(fromHost&&!amHost&&Array.isArray(pr.b)){for(const b of pr.b){if(!Array.isArray(b))continue;const bc=botAt(b[0]);if(bc&&!bc.removed)sync(bc,b[1],b[2],b[3],b[4],b[5],!!(b[6]&1),!!(b[6]&2),b[7],dt);}}
   }
   for(const [peer,c] of N.remotes){if(now-(N.seen[peer]||0)>3000){N.remotes.delete(peer);const i=E.remotes.indexOf(c);if(i>=0)E.remotes.splice(i,1);c.alive=false;c.dispose();}}
@@ -210,6 +212,7 @@ N.post=function(dt){
     if(!E.remotes.length)h='<div><span>Waiting for friends...</span></div>';if(N.el.innerHTML!==h)N.el.innerHTML=h;}
   if(N.acc<SEND)return;N.acc=0;if(N.brk&&N.brk.length)emit({t:'x',n:N.brk.splice(0,70)});prune();
   const p=E.player,patch={s:{r:N.cur.r,p:[r2(p.pos.x),r2(p.pos.y),r2(p.pos.z),r2(p.yaw)],hp:Math.round(p.hp),al:p.alive?1:0,gr:p.onGround?1:0,tl:p.tool||null,ko:p.kos,ov:E.over?1:0}};
+  if(E.game&&E.game.netMine)patch.s.x=E.game.netMine();
   patch.g=(N.amRH&&!E.over&&E.game&&E.game.netState)?(E.game.netState()||null):null;
   patch.ev=N.ev.slice();
   if(N.amRH){const b=[];for(const c of E.chars)if(c.isBot&&!c.removed)b.push([c.botIdx,r1(c.pos.x),r1(c.pos.y),r1(c.pos.z),r2(c.yaw),Math.round(c.hp),(c.alive?1:0)|(c.onGround?2:0),c.tool||0]);patch.b=b;}else patch.b=null;
