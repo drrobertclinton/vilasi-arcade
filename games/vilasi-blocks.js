@@ -29,9 +29,9 @@ def(LAMP,'Lamp',['lamp','lamp','lamp'],0xffe58a,{bright:true});
 const COLS=[['Red',0xe0483e],['Orange',0xf08a2c],['Yellow',0xf4d03a],['Green',0x4fb85a],['Blue',0x3f7fe0],['Purple',0x9a5fd6],['White',0xf2f2f2],['Black',0x2a2c33]];
 COLS.forEach((c,i)=>def(18+i,c[0],['c'+i,'c'+i,'c'+i],c[1]));
 def(TILE,'Tile',['tile','tile','tile'],0xd8dce6);
-const EGG=40;def(EGG,'Cow egg',['egg','egg','egg'],0xf4efe6,{item:true});
-const PLACE=[GRASS,DIRT,STONE,COBBLE,SAND,LOG,PLANK,LEAF,GLASS,BRICK,GRAVEL,SNOW,COAL,GOLD,LAMP,TILE,18,19,20,21,22,23,24,25,EGG];
-const HOT0=[GRASS,DIRT,STONE,PLANK,LOG,BRICK,GLASS,LAMP,EGG];
+const EGG=40,PEGG=41;def(EGG,'Cow egg',['egg','egg','egg'],0xf4efe6,{item:true});def(PEGG,'Pig egg',['egg2','egg2','egg2'],0xf2a0b5,{item:true});
+const PLACE=[GRASS,DIRT,STONE,COBBLE,SAND,LOG,PLANK,LEAF,GLASS,BRICK,GRAVEL,SNOW,COAL,GOLD,LAMP,TILE,18,19,20,21,22,23,24,25,EGG,PEGG];
+const HOT0=[GRASS,DIRT,STONE,PLANK,LOG,BRICK,GLASS,EGG,PEGG];
 
 /* ---------------------------------------------------------------- textures (every pixel is made here) */
 const TS=16,AC=8,AR=5,TILES={};let atlasCanvas=null,atlasURL='';
@@ -68,6 +68,9 @@ function buildAtlas(){
   tile('egg',t=>{for(let y=0;y<16;y++)for(let x=0;x<16;x++){const dx=(x-7.5)/5.2,dy=(y-8.5)/(y<8.5?6.8:5.6),in_=dx*dx+dy*dy<1;
       t.set(x,y,in_?t.sh(t.hx(0xf4efe6),1.03-(dx*0.1+dy*0.08)):t.hx(0x24284a),in_?255:255);}
     for(const q of [[5,6],[9,5],[10,9],[6,11],[8,8]]){t.set(q[0],q[1],t.hx(0x5a3d2b));t.set(q[0]+1,q[1],t.hx(0x5a3d2b));t.set(q[0],q[1]+1,t.hx(0x5a3d2b));}});
+  tile('egg2',t=>{for(let y=0;y<16;y++)for(let x=0;x<16;x++){const dx=(x-7.5)/5.2,dy=(y-8.5)/(y<8.5?6.8:5.6),in_=dx*dx+dy*dy<1;
+      t.set(x,y,in_?t.sh(t.hx(0xf7b6c8),1.05-(dx*0.12+dy*0.1)):t.hx(0x24284a));}
+    for(const q of [[5,6],[9,5],[10,9],[6,11],[8,8]]){t.set(q[0],q[1],t.hx(0xd9668c));t.set(q[0]+1,q[1],t.hx(0xd9668c));t.set(q[0],q[1]+1,t.hx(0xd9668c));}});
   atlasURL=cv.toDataURL();
 }
 function swatch(el,id,px){const n=TILES[B[id].tiles[1]],k=px/TS;el.style.backgroundImage='url('+atlasURL+')';el.style.backgroundSize=(AC*TS*k)+'px '+(AR*TS*k)+'px';el.style.backgroundPosition=(-(n%AC)*px)+'px '+(-Math.floor(n/AC)*px)+'px';el.style.imageRendering='pixelated';}
@@ -78,8 +81,10 @@ const CSS='.vb-ui{position:absolute;right:12px;top:118px;display:flex;flex-direc
 '.vb .vg-hp{display:none}.vb .vg-tools{gap:4px;flex-wrap:nowrap}.vb .vg-tool{min-width:0;width:46px;height:46px;padding:0;border-radius:8px}.vb .vg-tool span{display:none}.vb .vg-tool em{left:3px;top:1px;text-shadow:0 1px 2px #000;z-index:1}'+
 '.vb .vg-tool i.sw{position:absolute;left:5px;top:5px;width:32px;height:32px;border-radius:4px}.vb .vg-tool.on{border-color:#ffd24a;transform:translateY(-4px)}'+
 '@media(max-width:560px){.vb .vg-tool{width:34px;height:34px}.vb .vg-tool i.sw{left:3px;top:3px;width:24px;height:24px}}'+
-'.vb-pick{position:absolute;inset:0;background:rgba(8,10,28,.72);display:none;align-items:center;justify-content:center;z-index:9}.vb-pick.on{display:flex}'+
-'.vb-pick>div{background:#141a3c;border:2px solid rgba(255,255,255,.2);border-radius:16px;padding:18px;max-width:min(92vw,520px);max-height:86vh;overflow:auto;color:#fff}'+
+'.vb-pick{position:absolute;inset:0;background:rgba(8,10,28,.72);display:none;align-items:center;justify-content:center;z-index:9;pointer-events:auto}.vb-pick.on{display:flex}'+
+'.vb-pick>div{background:#141a3c;border:2px solid rgba(255,255,255,.2);border-radius:16px;padding:18px;max-width:min(92vw,520px);max-height:86vh;max-height:86dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;color:#fff;box-sizing:border-box}'+
+'.vb-pick>div *{touch-action:pan-y}'+
+'@media(max-height:520px){.vb-grid button i{width:36px;height:36px}.vb-pick>div{padding:12px}}'+''+
 '.vb-pick h2{margin:0 0 4px;font-size:20px}.vb-pick p{margin:0 0 12px;opacity:.8;font-size:14px}.vb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}'+
 '.vb-grid button{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px;border-radius:10px;border:2px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#fff;font:600 12px/1.1 inherit}'+
 '.vb-grid button i{width:48px;height:48px;border-radius:6px;display:block}.vb-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}'+
@@ -95,7 +100,7 @@ VG.register({
     'Click or tap Break to remove a block. Right-click, press R, or tap Build to place the block you are holding.',
     'Keys 1 to 9 or the mouse wheel change the block in your hand. Press E or tap Blocks to swap in any block.',
     'Press F or tap Fly to fly. While flying, Space goes up and Shift goes down.',
-    'Hold the Cow egg and use Build to hatch a cow. Break a cow to pop it away. You can have up to 12 cows.',
+    'Hold the Cow egg or the Pig egg and use Build to hatch an animal. Break an animal to pop it away. You can have up to 12 animals.',
     'Your world is saved on this device every few seconds, so your builds are there when you come back.',
     'With friends, everyone builds in the party leader\'s world at the same time, and it is saved on the leader\'s device.'
   ],
@@ -193,7 +198,7 @@ VG.register({
     /* ---- hotbar */
     let mySave=save;if(!canSave){try{mySave=JSON.parse(localStorage.getItem(SAVE)||'null');}catch(e){mySave=null;}}
     const hot=(mySave&&Array.isArray(mySave.hot)&&mySave.hot.length===9&&mySave.hot.every(b=>PLACE.indexOf(b)>=0))?mySave.hot.slice():HOT0.slice();
-    if(mySave&&!mySave.egg&&hot.indexOf(EGG)<0)hot[8]=EGG; /* worlds from before cows get the egg in the last slot */
+    if(mySave&&mySave.egg!==2){if(hot.indexOf(PEGG)<0)hot[8]=PEGG;if(hot.indexOf(EGG)<0)hot[7]=EGG;} /* worlds from before the animals get both eggs in the last two slots */
     PLACE.forEach(id=>{VG.TOOLS['vb:'+id]={name:B[id].name,cd:0.05,use(){return false;}};});
     const setHot=()=>{const cur=P.tools.indexOf(P.tool);P.setTools(hot.map(b=>'vb:'+b));P.equip(P.tools[Math.max(0,cur)]);E.hud.tools();};
     P.setTools(hot.map(b=>'vb:'+b));
@@ -206,12 +211,12 @@ VG.register({
     E.hud.el.appendChild(ui);
     const pick=document.createElement('div');pick.className='vb-pick';E.hud.el.appendChild(pick);
     let wantPlace=false,downHeld=false,askNew=false;
-    function openPick(v){if(v){try{document.exitPointerLock&&document.exitPointerLock();}catch(e){}askNew=false;drawPick();}pick.classList.toggle('on',v);}
+    function openPick(v){if(v){try{document.exitPointerLock&&document.exitPointerLock();}catch(e){}askNew=false;drawPick();}pick.classList.toggle('on',v);try{VG.stage.style.touchAction=v?'auto':'';}catch(e){}}
     function drawPick(){
       let h='<div><h2>Blocks</h2><p>Pick a block to put in slot '+(P.tools.indexOf(P.tool)+1)+' of your bar.</p><div class="vb-grid">';
       PLACE.forEach(id=>{h+='<button type="button" data-b="'+id+'"><i></i>'+VG.esc(B[id].name)+'</button>';});
       h+='</div><div class="vb-row"><button type="button" class="main" data-a="close">Back to building</button>'+(net?'':'<button type="button" data-a="new">'+(askNew?'Yes, erase this world and make a new one':'Start a new world')+'</button>')+'</div></div>';
-      pick.innerHTML=h;pick.querySelectorAll('[data-b]').forEach(b=>swatch(b.firstChild,+b.getAttribute('data-b'),48));
+      pick.innerHTML=h;pick.querySelectorAll('[data-b]').forEach(b=>swatch(b.firstChild,+b.getAttribute('data-b'),b.firstChild.clientWidth||48));
     }
     pick.addEventListener('click',e=>{const t=e.target.closest('button');if(!t){if(e.target===pick)openPick(false);return;}
       const b=t.getAttribute('data-b'),a=t.getAttribute('data-a');
@@ -245,11 +250,26 @@ VG.register({
       blocks[i]=id;mark(x,z);mark(x-1,z);mark(x+1,z);mark(x,z-1);mark(x,z+1);
       if(!(i in edits))nEd++;edits[i]=id;if(canSave)dirty=true;if(net&&!told)net.send({b:[i,id]});return true;
     }
-    function doSave(){if(!canSave||noSave)return;try{localStorage.setItem(SAVE,JSON.stringify({seed:SEED,e:edits,p:[+pos.x.toFixed(2),+pos.y.toFixed(2),+pos.z.toFixed(2),+C.yaw.toFixed(3),+C.pitch.toFixed(3)],hot,egg:1,pg:cows.map(q=>[+q.x.toFixed(1),+q.y.toFixed(1),+q.z.toFixed(1),+q.yaw.toFixed(2)])}));}catch(e){}dirty=false;}
-    /* ---- cows (our own blocky cow design). Each player's device runs the cows that player hatched; everyone else sees them move. */
+    function doSave(){if(!canSave||noSave)return;try{localStorage.setItem(SAVE,JSON.stringify({seed:SEED,e:edits,p:[+pos.x.toFixed(2),+pos.y.toFixed(2),+pos.z.toFixed(2),+C.yaw.toFixed(3),+C.pitch.toFixed(3)],hot,egg:2,pg:cows.map(q=>[+q.x.toFixed(1),+q.y.toFixed(1),+q.z.toFixed(1),+q.yaw.toFixed(2),q.k])}));}catch(e){}dirty=false;}
+    /* ---- animals: cows and pigs (our own blocky designs). Each player's device runs the animals that player hatched; everyone else sees them move. */
+    const KIND=[{hw:0.38,hh:1.3,sp:1.3,ah:0.85,ahead:1,jump:7.4},{hw:0.3,hh:0.85,sp:1.5,ah:0.5,ahead:0.75,jump:7.4}]; /* 0 cow, 1 pig */
     const cows=[],farCows=new Map();let cowN=1;
     const PM=c=>new T.MeshLambertMaterial({color:c}),pm={body:PM(0xf4efe6),dark:PM(0x5a3d2b),snout:PM(0xf0b4b4),ink:PM(0x2a2230),horn:PM(0xe6d6b0)};
     const pg={};function bx(w,h,d){const k=w+'_'+h+'_'+d;return pg[k]||(pg[k]=new T.BoxGeometry(w,h,d));}
+    const pp={body:PM(0xf2a0b5),dark:PM(0xdc7f9c),snout:PM(0xf7c3d1),patch:PM(0xfbd3de)};
+    function pigMesh(){
+      const g=new T.Group(),add=(par,geo,mat,x,y,z)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);par.add(m);return m;};
+      add(g,bx(0.62,0.5,0.95),pp.body,0,0.55,0);add(g,bx(0.4,0.06,0.5),pp.patch,0,0.82,-0.05);
+      const head=new T.Group();head.position.set(0,0.66,0.52);g.add(head);
+      add(head,bx(0.5,0.46,0.42),pp.body,0,0,0.1);add(head,bx(0.26,0.18,0.1),pp.snout,0,-0.08,0.36);
+      add(head,bx(0.05,0.07,0.02),pm.ink,-0.06,-0.08,0.415);add(head,bx(0.05,0.07,0.02),pm.ink,0.06,-0.08,0.415);
+      add(head,bx(0.07,0.09,0.02),pm.ink,-0.15,0.08,0.315);add(head,bx(0.07,0.09,0.02),pm.ink,0.15,0.08,0.315);
+      const e1=add(head,bx(0.16,0.2,0.06),pp.dark,-0.22,0.24,0.02),e2=add(head,bx(0.16,0.2,0.06),pp.dark,0.22,0.24,0.02);e1.rotation.z=0.5;e2.rotation.z=-0.5;
+      const legs=[];for(const q of [[-0.2,0.3],[0.2,0.3],[-0.2,-0.3],[0.2,-0.3]]){const l=new T.Group();l.position.set(q[0],0.32,q[1]);add(l,bx(0.17,0.32,0.17),pp.dark,0,-0.16,0);g.add(l);legs.push(l);}
+      const tail=add(g,bx(0.08,0.08,0.16),pp.dark,0,0.7,-0.52);tail.rotation.x=-0.6;
+      g.userData={head,legs};E.scene.add(g);return g;
+    }
+    const mkMesh=k=>k===1?pigMesh():cowMesh();
     function cowMesh(){
       const g=new T.Group(),add=(par,geo,mat,x,y,z)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);par.add(m);return m;};
       add(g,bx(0.72,0.66,1.3),pm.body,0,0.86,0);
@@ -268,19 +288,18 @@ VG.register({
     }
     const boxHit=(x,y,z,hw,hh)=>{const x0=Math.floor(x-hw),x1=Math.floor(x+hw),y0=Math.floor(y),y1=Math.floor(y+hh-0.001),z0=Math.floor(z-hw),z1=Math.floor(z+hw);
       for(let yy=y0;yy<=y1;yy++)for(let zz=z0;zz<=z1;zz++)for(let xx=x0;xx<=x1;xx++)if(solid(xx,yy,zz))return true;return false;};
-    function hatch(x,y,z,yaw){
+    function hatch(x,y,z,yaw,k){k=k===1?1:0;
       while(cows.length>=12){const o=cows.shift();E.scene.remove(o.m);}
-      const q={id:cowN++,x,y,z,vy:0,yaw:yaw==null?Math.random()*6.283:yaw,want:0,walk:0,idle:1+Math.random()*2,ph:0,hop:0,m:cowMesh()};q.want=q.yaw;cows.push(q);if(canSave)dirty=true;return q;
+      const q={id:cowN++,x,y,z,vy:0,yaw:yaw==null?Math.random()*6.283:yaw,want:0,walk:0,idle:1+Math.random()*2,ph:0,hop:0,k,m:mkMesh(k)};q.want=q.yaw;cows.push(q);if(canSave)dirty=true;return q;
     }
     function popCow(q){const i=cows.indexOf(q);if(i<0)return;cows.splice(i,1);E.scene.remove(q.m);E.fx.burst(V(q.x,q.y+0.9,q.z),[0xf4efe6,0x5a3d2b],14,5,0.16,{life:0.7});E.sfx('pickup');if(canSave)dirty=true;}
     function pose(m,x,y,z,yaw,ph,moving){m.position.set(x,y,z);m.rotation.y=yaw;const sw=moving?Math.sin(ph)*0.6:0,L=m.userData.legs;L[0].rotation.x=sw;L[3].rotation.x=sw;L[1].rotation.x=-sw;L[2].rotation.x=-sw;m.userData.head.rotation.x=moving?0:Math.sin(E.time*1.3+x)*0.12;}
     function cowsUpdate(dt){
-      const HWp=0.38,HHp=1.3;
-      for(const q of cows){
+      for(const q of cows){const KK=KIND[q.k],HWp=KK.hw,HHp=KK.hh;
         if(q.walk>0){q.walk-=dt;if(q.walk<=0)q.idle=1+Math.random()*3;}else{q.idle-=dt;if(q.idle<=0){q.walk=1.5+Math.random()*3;q.want=q.yaw+(Math.random()-0.5)*3.2;}}
         let d=q.want-q.yaw;d=((d+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;q.yaw+=d*Math.min(1,4*dt);
         const ground=boxHit(q.x,q.y-0.05,q.z,HWp,0.05);
-        if(q.walk>0){const sp=1.3*dt,fx=Math.sin(q.yaw),fz=Math.cos(q.yaw),nx=q.x+fx*sp,nz=q.z+fz*sp,ax=q.x+fx*1.0,az=q.z+fz*1.0;
+        if(q.walk>0){const sp=KK.sp*dt,fx=Math.sin(q.yaw),fz=Math.cos(q.yaw),nx=q.x+fx*sp,nz=q.z+fz*sp,ax=q.x+fx*KK.ahead,az=q.z+fz*KK.ahead;
           const wet=get(Math.floor(ax),Math.floor(q.y-0.5),Math.floor(az))===WATER||get(Math.floor(ax),Math.floor(q.y),Math.floor(az))===WATER;
           const drop=!solid(Math.floor(ax),Math.floor(q.y-0.5),Math.floor(az))&&!solid(Math.floor(ax),Math.floor(q.y-1.5),Math.floor(az))&&!solid(Math.floor(ax),Math.floor(q.y-2.5),Math.floor(az));
           if(nx<1||nz<1||nx>WX-1||nz>WZ-1||wet||drop){q.want=q.yaw+2.2+Math.random();q.walk=Math.max(q.walk,0.8);}
@@ -299,16 +318,16 @@ VG.register({
       const seen={};
       for(const c of E.remotes){const x=c.netX;if(!Array.isArray(x)||!Array.isArray(x[2]))continue;
         for(const a of x[2]){if(!Array.isArray(a))continue;const k=c.remote+':'+a[0];seen[k]=1;let f=farCows.get(k);
-          if(!f){f={m:cowMesh(),x:+a[1],y:+a[2],z:+a[3],yaw:+a[4]||0,ph:0,peer:c.remote,id:a[0]};farCows.set(k,f);}
+          if(!f){f={k:a[5]===1?1:0,m:mkMesh(a[5]===1?1:0),x:+a[1],y:+a[2],z:+a[3],yaw:+a[4]||0,ph:0,peer:c.remote,id:a[0]};farCows.set(k,f);}
           const ox=f.x,oz=f.z,kk=Math.min(1,10*dt);f.x+=(+a[1]-f.x)*kk;f.y+=(+a[2]-f.y)*kk;f.z+=(+a[3]-f.z)*kk;
           let d=(+a[4]||0)-f.yaw;d=((d+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;f.yaw+=d*kk;
           const mv=Math.hypot(f.x-ox,f.z-oz)>0.4*dt;if(mv)f.ph+=dt*9;pose(f.m,f.x,f.y,f.z,f.yaw,f.ph,mv);}}
       for(const [k,f] of farCows)if(!seen[k]){E.scene.remove(f.m);farCows.delete(k);}
     }
     /* which cow, if any, is in front of the crosshair before the block */
-    function cowAim(maxT){let best=null,bt=maxT;const test=(o,x,y,z)=>{const cx=x-eye.x,cy=y+0.85-eye.y,cz=z-eye.z,t=cx*fwd.x+cy*fwd.y+cz*fwd.z;if(t<0||t>bt)return;const dx=cx-fwd.x*t,dy=cy-fwd.y*t,dz=cz-fwd.z*t;if(dx*dx+dy*dy+dz*dz<0.5){bt=t;best=o;}};
+    function cowAim(maxT){let best=null,bt=maxT;const test=(o,x,y,z)=>{const kk=KIND[o.k||0],cx=x-eye.x,cy=y+kk.ah-eye.y,cz=z-eye.z,t=cx*fwd.x+cy*fwd.y+cz*fwd.z;if(t<0||t>bt)return;const dx=cx-fwd.x*t,dy=cy-fwd.y*t,dz=cz-fwd.z*t;if(dx*dx+dy*dy+dz*dz<(o.k===1?0.3:0.5)){bt=t;best=o;}};
       for(const q of cows)test(q,q.x,q.y,q.z);for(const f of farCows.values())test(f,f.x,f.y,f.z);return best;}
-    if(canSave&&save&&Array.isArray(save.pg))for(const a of save.pg.slice(0,12))if(Array.isArray(a))hatch(+a[0]||0,+a[1]||0,+a[2]||0,+a[3]||0);
+    if(canSave&&save&&Array.isArray(save.pg))for(const a of save.pg.slice(0,12))if(Array.isArray(a))hatch(+a[0]||0,+a[1]||0,+a[2]||0,+a[3]||0,a[4]);
     let breakCd=0,placeCd=0,stepT=0;
     function update(dt){
       dressTools();E.hud.el.classList.toggle('vb-touch',!!I.touch);
@@ -337,9 +356,9 @@ VG.register({
       else if((I.fire||I.fireHeld)&&breakCd<=0&&aim&&!cow){const b=get(aim.x,aim.y,aim.z);
         if(b!==AIR&&!B[b].fixed&&setBlock(aim.x,aim.y,aim.z,(aim.y<=SEA&&[[1,0],[-1,0],[0,1],[0,-1]].some(d=>get(aim.x+d[0],aim.y,aim.z+d[1])===WATER))?WATER:AIR)){
           E.fx.burst(V(aim.x+0.5,aim.y+0.5,aim.z+0.5),B[b].col,9,5,0.16,{life:0.7});E.sfx('hit');breakCd=0.22;}}
-      if((I.alt||wantPlace)&&placeCd<=0&&held()===EGG){
+      if((I.alt||wantPlace)&&placeCd<=0&&(held()===EGG||held()===PEGG)){
         if(cow){cow.hop=1;if(!cow.m||cows.indexOf(cow)<0){}E.fx.burst(V(cow.x,cow.y+1,cow.z),[0xff6fa5,0xffffff],6,3,0.14,{life:0.6});placeCd=0.3;}
-        else if(aim&&!solid(aim.px,aim.py,aim.pz)){hatch(aim.px+0.5,aim.py+0.02,aim.pz+0.5,C.yaw);E.fx.burst(V(aim.px+0.5,aim.py+0.5,aim.pz+0.5),[0xf4efe6,0x5a3d2b],14,5,0.16,{life:0.7});E.sfx('pickup');placeCd=0.35;}}
+        else if(aim&&!solid(aim.px,aim.py,aim.pz)){hatch(aim.px+0.5,aim.py+0.02,aim.pz+0.5,C.yaw,held()===PEGG?1:0);E.fx.burst(V(aim.px+0.5,aim.py+0.5,aim.pz+0.5),[0xf4efe6,0x5a3d2b],14,5,0.16,{life:0.7});E.sfx('pickup');placeCd=0.35;}}
       else if((I.alt||wantPlace)&&placeCd<=0&&aim){const x=aim.px,yy=aim.py,z=aim.pz,cur=get(x,yy,z);
         if((cur===AIR||cur===WATER)&&yy>=1&&yy<WY){
           const blocked=q=>Math.abs(q.x-(x+0.5))<0.5+HW&&Math.abs(q.z-(z+0.5))<0.5+HW&&q.y<yy+1&&q.y+HH>yy;
@@ -364,14 +383,14 @@ VG.register({
     return {
       update,camera,
       onRemote(c){c.group.scale.setScalar(0.72);},
-      netMine(){return [owner?1:0,nEd,cows.map(q=>[q.id,+q.x.toFixed(1),+q.y.toFixed(1),+q.z.toFixed(1),+q.yaw.toFixed(1)])];},
-      onNet(d){if(!d)return;const one=(i,id)=>{i|=0;id|=0;if(i<0||i>=blocks.length||(id!==AIR&&id!==WATER&&(PLACE.indexOf(id)<0||id===EGG)))return;
+      netMine(){return [owner?1:0,nEd,cows.map(q=>[q.id,+q.x.toFixed(1),+q.y.toFixed(1),+q.z.toFixed(1),+q.yaw.toFixed(1),q.k])];},
+      onNet(d){if(!d)return;const one=(i,id)=>{i|=0;id|=0;if(i<0||i>=blocks.length||(id!==AIR&&id!==WATER&&(PLACE.indexOf(id)<0||id===EGG||id===PEGG)))return;
           const x=i%WX,z=Math.floor(i/WX)%WZ,y=Math.floor(i/(WX*WZ));if(B[blocks[i]]&&B[blocks[i]].fixed)return;if(!setBlock(x,y,z,id,true)&&!(i in edits)){nEd++;edits[i]=id;}};
         if(Array.isArray(d.pop)&&d.pop[0]===(net&&net.myPeer)){const q=cows.find(o=>o.id===d.pop[1]);if(q)popCow(q);}
         if(Array.isArray(d.b))one(d.b[0],d.b[1]);
         if(Array.isArray(d.bs))for(let k=0;k+1<d.bs.length&&k<400;k+=2)one(d.bs[k],d.bs[k+1]);},
       canDamage(){return false;},
-      dispose(){doSave();window.removeEventListener('keydown',onKey);for(const ch of chunks){for(const k of ['o','t'])if(ch[k]){E.scene.remove(ch[k]);ch[k].geometry.dispose();}}tex.dispose();matO.dispose();matT.dispose();E.hud.el.classList.remove('vb','vb-touch');},
+      dispose(){doSave();window.removeEventListener('keydown',onKey);for(const ch of chunks){for(const k of ['o','t'])if(ch[k]){E.scene.remove(ch[k]);ch[k].geometry.dispose();}}tex.dispose();matO.dispose();matT.dispose();E.hud.el.classList.remove('vb','vb-touch');try{VG.stage.style.touchAction='';}catch(e){}},
       _t:{get,setBlock,pos,cast:()=>aim,held,blocks,idx,WX,WZ,WY,cows,farCows,hatch}
     };
   }
