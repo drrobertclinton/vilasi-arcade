@@ -40,12 +40,29 @@ class World{
     const m=b.glow?this.glow:this.lit,u=m.userData;b.mesh=m;
     if(u.free.length)b.idx=u.free.pop();else if(u.n<this.cap)b.idx=u.n++;else b.idx=-1;
     if(u.n>m.count)m.count=u.n;
-    this._write(b);this.boxes.add(b);this._ins(b);return b;
+    this._write(b);this.boxes.add(b);this._ins(b);(this._new||(this._new=[])).push(b);return b;
+  }
+  /* Two blocks whose faces sit in exactly the same plane flicker between their two colours. For every block added since the last
+     call, find faces that share a plane with a differently coloured neighbour and draw the smaller one a hair in front (drawing only). */
+  fixSeams(){
+    const nw=this._new;if(!nw||!nw.length)return 0;this._new=[];
+    const F=['minx','maxx','miny','maxy','minz','maxz'],EPS=0.025,LIFT=0.03;let found=0;this._stamp=(this._stamp||0)+1;
+    const ov=(a0,a1,b0,b1)=>Math.min(a1,b1)-Math.max(a0,b0);
+    for(const b of nw){if(!b.alive||b.idx<0)continue;const st=++this._stamp;
+      for(const k of b.cells){const arr=this.grid.get(k);if(!arr)continue;
+        for(const a of arr){if(a===b||a._st===st||!a.alive||a.idx<0)continue;a._st=st;
+          if(a.color===b.color&&a.shade===b.shade)continue;
+          const ox=ov(a.minx,a.maxx,b.minx,b.maxx),oy=ov(a.miny,a.maxy,b.miny,b.maxy),oz=ov(a.minz,a.maxz,b.minz,b.maxz);
+          for(let f=0;f<6;f++){if(Math.abs(a[F[f]]-b[F[f]])>EPS)continue;
+            const ax=f>>1,o1=ax===0?oy:ox,o2=ax===2?oy:oz;if(o1<0.05||o2<0.05)continue;
+            const ar=q=>ax===0?q.sy*q.sz:ax===1?q.sx*q.sz:q.sx*q.sy,w=ar(b)<=ar(a)?b:a,l=w===b?a:b;
+            if(!w.lift)w.lift=[0,0,0,0,0,0];const want=(l.lift?l.lift[f]:0)+LIFT+((f&1)?l[F[f]]-w[F[f]]:w[F[f]]-l[F[f]]);if(w.lift[f]<want){w.lift[f]=want;this._write(w);}found++;}}}}
+    return found;
   }
   _bounds(b){b.minx=b.x-b.sx/2;b.maxx=b.x+b.sx/2;b.miny=b.y-b.sy/2;b.maxy=b.y+b.sy/2;b.minz=b.z-b.sz/2;b.maxz=b.z+b.sz/2;}
   _write(b,hide){
     if(b.idx<0)return;const m=b.mesh;
-    if(hide)this._m.makeScale(0,0,0);else{this._m.makeScale(b.sx,b.sy,b.sz);this._m.setPosition(b.x,b.y,b.z);}
+    if(hide)this._m.makeScale(0,0,0);else if(b.lift){const l=b.lift;this._m.makeScale(b.sx+l[0]+l[1],b.sy+l[2]+l[3],b.sz+l[4]+l[5]);this._m.setPosition(b.x+(l[1]-l[0])/2,b.y+(l[3]-l[2])/2,b.z+(l[5]-l[4])/2);}else{this._m.makeScale(b.sx,b.sy,b.sz);this._m.setPosition(b.x,b.y,b.z);}
     m.setMatrixAt(b.idx,this._m);m.instanceMatrix.needsUpdate=true;
     if(!hide){this._c.set(b.color);if(b.shade!==1)this._c.multiplyScalar(b.shade);m.setColorAt(b.idx,this._c);m.instanceColor.needsUpdate=true;}
   }
@@ -436,7 +453,7 @@ class Engine{
     this.step(dt);this.renderer.render(this.scene,this.camera);
   }
   step(dt){
-    this.time+=dt;if(this.net)this.net.pre(dt);
+    this.time+=dt;if(this.world._new&&this.world._new.length){const n=this.world.fixSeams();this.seams=(this.seams||0)+n;}if(this.net)this.net.pre(dt);
     for(let i=this.timers.length-1;i>=0;i--){const t=this.timers[i];if(t.dead){this.timers.splice(i,1);continue;}if(this.time>=t.at){if(t.every)t.at+=t.every;else this.timers.splice(i,1);try{t.fn();}catch(e){console.error(e);}}}
     if(!this.over){if(window.VG_AUTOPILOT&&this.game.autopilot){try{this.game.autopilot(dt);}catch(e){console.error(e);}}else this._player(dt);if(this.game.update){try{this.game.update(dt);}catch(e){console.error(e);}}}
     const sub=dt>0.02?2:1,h=dt/sub;
