@@ -21,7 +21,7 @@ def mk(ctx, tag, name):
     page.add_init_script("try{localStorage.setItem('va_profile',JSON.stringify({name:'%s',color:%d}))}catch(e){}" % (name, 0xff4d5e if tag == "A" else 0x35d07f))
     page.goto("http://127.0.0.1:%d/index.html?fakenet=1#friends" % port); page.wait_for_timeout(700); return page
 STATE = """()=>{const E=VG.current;if(!E)return null;const f=c=>({n:c.name,x:+c.pos.x.toFixed(1),y:+c.pos.y.toFixed(1),z:+c.pos.z.toFixed(1),hp:Math.round(c.hp),al:c.alive,ko:c.kos});
- return {t:+E.time.toFixed(1),over:E.over,host:VG.net.isHost(),boxes:E.world.boxes.size,me:f(E.player),remotes:E.remotes.map(f),bots:E.chars.filter(c=>c.isBot).map(c=>Object.assign(f(c),{i:c.botIdx,pup:!!c.puppet}))};}"""
+ return {t:+E.time.toFixed(1),over:E.over,host:VG.net.isHost(),boxes:E.world.boxes.size,title:(E.hud.$.end.querySelector('h2')||{}).textContent,status:E.hud.$.status.textContent,me:f(E.player),remotes:E.remotes.map(f),bots:E.chars.filter(c=>c.isBot&&!c.removed).map(c=>Object.assign(f(c),{i:c.botIdx,pup:!!c.puppet}))};}"""
 ok = True
 def check(c, msg):
     global ok
@@ -82,7 +82,7 @@ with sync_playwright() as p:
     print("hit sent:", res, "| B hp", hp0, "->", hp1, "| alive before", al0)
     if a.shots:
         A.screenshot(path=os.path.join(ROOT, "test", "mp-%s-A.png" % a.game)); B.screenshot(path=os.path.join(ROOT, "test", "mp-%s-B.png" % a.game))
-    print("A:", json.dumps(sa)[:600]); print("B:", json.dumps(sb)[:600])
+    print("A: t=%s over=%s title=%r status=%r bots=%d me=%s" % (sa["t"], sa["over"], sa.get("title"), sa.get("status"), len(sa["bots"]), sa["me"]))
     for k in errs:
         for e in errs[k][:8]: print("ERR", k, e)
     check(not errs["A"] and not errs["B"], "no page errors")

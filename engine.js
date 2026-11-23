@@ -319,6 +319,7 @@ class Engine{
     /* playing with friends: every device builds the same map from the same seed */
     this.net=(VG.net&&VG.net.begin)?VG.net.begin(this):null;
     {const rr=Math.random;if(this.net)Math.random=this.net.rng;try{this.game=def.create(this)||{};}finally{Math.random=rr;}}
+    if(this.net)this.net.created(this);
     this.hud.tools();this._resize();this._last=performance.now();this._raf=requestAnimationFrame(t=>this._loop(t));
   }
   /* ---- setup helpers for games */
@@ -356,7 +357,7 @@ class Engine{
           sh.fragmentShader.replace('#include <dithering_fragment>','#include <dithering_fragment>\n{float r=wN(vgP.xz*0.11+vec2(vgT*0.35,vgT*0.21))+0.5*wN(vgP.xz*0.31-vec2(vgT*0.5,vgT*0.3));float band=smoothstep(0.95,1.2,r);gl_FragColor.rgb+=vec3(0.16,0.2,0.22)*band;gl_FragColor.rgb*=0.9+0.14*r;}');};
     }else mat=new T.MeshBasicMaterial({color,transparent:opacity<1,opacity:opacity==null?1:opacity,depthWrite:opacity>=1});
     const m=new T.Mesh(BOX,mat);m.scale.set(sx,sy,sz);m.position.set(x,y,z);return this.add(m);}
-  spawn(o){const c=new Char(this,o);if(c.isBot){c.brain=new Brain(c,this);c.botIdx=this._botN++;}this.chars.push(c);return c;}
+  spawn(o){const c=new Char(this,o);if(c.isBot){c.brain=new Brain(c,this);c.botIdx=this._botN++;}this.chars.push(c);if(this.net&&this.net.live&&c.isBot)this.net.dropBot(c);return c;}
   /* everyone a tool or blast can hit: the round's characters plus friends playing from other devices */
   targets(){return this.remotes.length?this.chars.concat(this.remotes):this.chars;}
   /* add n bots with fresh names. each gets .brain */
@@ -388,7 +389,7 @@ class Engine{
     if(this.game&&this.game.onDeath&&!c.remote){try{this.game.onDeath(c,by);}catch(e){console.error(e);}}
     if(this.net&&!c.puppet)this.net.onKill(c,by);
   }
-  respawn(c,x,y,z,shield){if(this.net&&c.puppet&&!this.net.applying)return;c.alive=true;c.hp=c.maxHp;c.teleport(x,y,z);c.group.visible=true;c.invuln=shield==null?2.5:shield;c.lastHitBy=null;if(c===this.player)this.hud.hp();}
+  respawn(c,x,y,z,shield){if(c.removed)return;if(this.net&&c.puppet&&!this.net.applying)return;c.alive=true;c.hp=c.maxHp;c.teleport(x,y,z);c.group.visible=true;c.invuln=shield==null?2.5:shield;c.lastHitBy=null;if(c===this.player)this.hud.hp();}
   heal(c,amt){if(!c.alive)return;c.hp=Math.min(c.maxHp,c.hp+amt);if(c===this.player)this.hud.hp();}
   /* fire a projectile. spec: speed,r,dmg,life,grav(0..1),bounce,fuse,explode:{r,dmg},color,trail,onHit(char),noOwnerHit */
   shoot(c,dir,spec){

@@ -59,7 +59,7 @@ const TIERS=[
 ];
 
 VG.register({
-  id:'mountain-nights',name:'Summit Nights',tagline:'Pick a real peak. Climb it. Survive the night.',color:0x6fb6ff,levels:1,
+  id:'mountain-nights', partyKeepBots:true, /* the camp guides are helpers, not rivals */name:'Summit Nights',tagline:'Pick a real peak. Climb it. Survive the night.',color:0x6fb6ff,levels:1,
   howTo:[
     'Walk through a glowing gate to pick your mountain: green is easy, gold is medium, red is hard.',
     'Watch your OXYGEN and WARMTH bars. Oxygen drains faster the higher you climb above your last camp. Warmth drains at night and in blizzards.',

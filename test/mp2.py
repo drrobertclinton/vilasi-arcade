@@ -24,7 +24,7 @@ def run(pages, secs=1.5):
     for i in range(int(secs * 10)):
         for pg in pages: pg.evaluate("()=>{const E=VG.current;if(E){E.paused=true;for(let i=0;i<3;i++)E.step(1/30);}}")
         pages[0].wait_for_timeout(30)
-R = "()=>VG.current?{r:VG.net.cur&&VG.net.cur.r,n:VG.current.remotes.length,boxes:VG.current.world.boxes.size,host:VG.net.isHost(),rh:VG.net.amRH,bots:VG.current.chars.filter(c=>c.isBot&&c.puppet).length}:null"
+R = "()=>VG.current?{r:VG.net.cur&&VG.net.cur.r,n:VG.current.remotes.length,boxes:VG.current.world.boxes.size,host:VG.net.isHost(),rh:VG.net.amRH,bots:VG.current.chars.filter(c=>c.isBot&&c.puppet&&!c.removed).length}:null"
 with sync_playwright() as p:
     b = p.chromium.launch(channel="chrome", headless=True, args=["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--no-sandbox"])
     ctx = b.new_context(viewport={"width": 800, "height": 500})

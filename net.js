@@ -110,11 +110,14 @@ N.countdown=function(go){if(N._cd)clearTimeout(N._cd);if(N.onCountdown)N.onCount
 /* ---- one round */
 N.begin=function(E){
   const s=N.session;N.session=null;if(!s||!N.code||!N.tr||s.g!==E.def.id)return null;
-  N.E=E;N.cur=s;N.rng=mulberry(s.seed);N.remotes=new Map();N.acc=0;N.hudT=0;N.seen={};
+  N.E=E;N.cur=s;N.live=false;N.rng=mulberry(s.seed);N.remotes=new Map();N.acc=0;N.hudT=0;N.seen={};
   if(N.pt&&N.pt.h&&!N.pt.live){N.pt.live=1;pushPt();}
   const el=N.el=document.createElement('div');el.className='vg-party';E.hud.el.appendChild(el);
   return N;
 };
+/* a party is players only: the computer players a game creates are taken out (a game can keep helpers with partyKeepBots) */
+N.dropBot=function(c){const E=N.E;if(!E||(E.def.partyKeepBots&&(E.def.partyKeepBots===true||E.def.partyKeepBots(c))))return;c.removed=true;c.alive=false;c.hp=0;c.frozen=true;c.group.visible=false;c.pos.y=-9999;};
+N.created=function(E){N.live=true;for(const c of E.chars)if(c.isBot)N.dropBot(c);};
 N.end=function(E){
   if(N.E!==E)return;N.E=null;N.cur=null;N.remotes=new Map();if(N.tr)N.tr.set({s:null,ev:null,b:null});N.ev=[];N.evT=[];
   if(N.pt&&N.pt.h&&N.pt.live&&!N.session&&!N._cd){N.pt.live=0;pushPt();}
@@ -161,7 +164,7 @@ function sync(c,x,y,z,yaw,hp,al,g,tl,dt){
 }
 N.pre=function(dt){
   const E=N.E;if(!E||!N.cur)return;const peers=N.peers(),now=performance.now(),rh=N.roundHost(),amHost=rh===N.myPeer;N.amRH=amHost;
-  for(const c of E.chars)if(c.isBot)c.puppet=!amHost;
+  for(const c of E.chars)if(c.isBot)c.puppet=c.removed?true:!amHost;
   for(const p of peers){
     if(p.peer===N.myPeer)continue;const pr=p.presence||{},t=pr.pt,s=pr.s;if(!t||t.code!==N.code||!s||s.r!==N.cur.r||!Array.isArray(s.p))continue;
     let c=N.remotes.get(p.peer);
@@ -171,7 +174,7 @@ N.pre=function(dt){
     if(Array.isArray(pr.ev)){let lq=N.last[p.peer];if(lq==null){lq=0;for(const e of pr.ev)if(e&&e.q>lq&&e.r!==N.cur.r)lq=e.q;}
       for(const e of pr.ev){if(e&&e.q>lq){lq=e.q;try{handle(e,p.peer,fromHost);}catch(err){console.error(err);}}}N.last[p.peer]=lq;}
     sync(c,+s.p[0]||0,+s.p[1]||0,+s.p[2]||0,+s.p[3]||0,s.hp,!!s.al,!!s.gr,s.tl,dt);c.kos=+s.ko||0;
-    if(fromHost&&!amHost&&Array.isArray(pr.b)){for(const b of pr.b){if(!Array.isArray(b))continue;const bc=botAt(b[0]);if(bc)sync(bc,b[1],b[2],b[3],b[4],b[5],!!(b[6]&1),!!(b[6]&2),b[7],dt);}}
+    if(fromHost&&!amHost&&Array.isArray(pr.b)){for(const b of pr.b){if(!Array.isArray(b))continue;const bc=botAt(b[0]);if(bc&&!bc.removed)sync(bc,b[1],b[2],b[3],b[4],b[5],!!(b[6]&1),!!(b[6]&2),b[7],dt);}}
   }
   for(const [peer,c] of N.remotes){if(now-(N.seen[peer]||0)>3000){N.remotes.delete(peer);const i=E.remotes.indexOf(c);if(i>=0)E.remotes.splice(i,1);c.alive=false;c.dispose();}}
 };
@@ -189,7 +192,7 @@ N.post=function(dt){
   if(N.acc<SEND)return;N.acc=0;prune();
   const p=E.player,patch={s:{r:N.cur.r,p:[r2(p.pos.x),r2(p.pos.y),r2(p.pos.z),r2(p.yaw)],hp:Math.round(p.hp),al:p.alive?1:0,gr:p.onGround?1:0,tl:p.tool||null,ko:p.kos}};
   patch.ev=N.ev.slice();
-  if(N.amRH){const b=[];for(const c of E.chars)if(c.isBot)b.push([c.botIdx,r1(c.pos.x),r1(c.pos.y),r1(c.pos.z),r2(c.yaw),Math.round(c.hp),(c.alive?1:0)|(c.onGround?2:0),c.tool||0]);patch.b=b;}else patch.b=null;
+  if(N.amRH){const b=[];for(const c of E.chars)if(c.isBot&&!c.removed)b.push([c.botIdx,r1(c.pos.x),r1(c.pos.y),r1(c.pos.z),r2(c.yaw),Math.round(c.hp),(c.alive?1:0)|(c.onGround?2:0),c.tool||0]);patch.b=b;}else patch.b=null;
   N.tr.set(patch);
 };
 })();

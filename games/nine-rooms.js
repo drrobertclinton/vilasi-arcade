@@ -1,6 +1,6 @@
 /* Nine Rooms: a hidden-role mystery in a manor. One guest is the Phantom, one is the Detective. */
 VG.register({
-  id:'nine-rooms',name:'Nine Rooms',tagline:'One guest is the Phantom. Find out who before the lights go out.',color:0x7a5cff,levels:1,
+  id:'nine-rooms', partyKeepBots:true, /* the Phantom and the other guests are computer players the game cannot run without */name:'Nine Rooms',tagline:'One guest is the Phantom. Find out who before the lights go out.',color:0x7a5cff,levels:1,
   howTo:[
     'Everyone in the manor looks the same, and one guest is secretly the Phantom. Your role is shown at the top.',
     'Guests: collect coins, stay near other guests and watch for anyone sneaky. The Phantom can only zap someone who is close.',
