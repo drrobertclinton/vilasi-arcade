@@ -615,7 +615,15 @@ VG.register({
     }
 
     /* ---------------------------------------------------------------- the climb: start, camps, falls */
-    function startClimb(g){
+    /* party: everyone climbs the same mountain, built from the shared seed so every block is in the same place, on one shared clock */
+    const net=E.net&&E.net.cur?E.net:null;
+    const mul=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let q=Math.imul(a^a>>>15,1|a);q=q+Math.imul(q^q>>>7,61|q)^q;return((q^q>>>14)>>>0)/4294967296;};
+    function startClimb(g,told){
+      if(net){if(!told)net.send({climb:g.tier});const rr=Math.random;Math.random=mul((net.cur.seed^Math.imul(g.tier+1,0x9E3779B1))|0);
+        try{net.quiet(()=>startClimb0(g));}finally{Math.random=rr;}}
+      else startClimb0(g);
+    }
+    function startClimb0(g){
       mode='climb';tierIdx=g.tier;tier=TIERS[tierIdx];peak=g.peak;
       for(const b of baseBoxes.filter(b=>false))W.removeBox(b);
       // remove the preview mountains (the real ones are built along the route)
@@ -698,7 +706,7 @@ VG.register({
       clock+=dt;const ph=((clock/cyc)+0.03)%1;
       const wasN=nightW;
       // blizzards
-      blizzT-=dt;
+      blizzT-=dt;if(net&&net.live&&!net.amRH&&net.gAge()<1.5&&blizzT<3)blizzT=3; /* the round host starts them */
       if(blizzT<=0&&!blizzOn&&nightW<0.5){blizzOn=tier.blizzDur;blizzT=rand(tier.blizz[0],tier.blizz[1]);E.announce('A blizzard is rolling in! Find shelter by a fire.',2.6);E.sfx('alarm');}
       if(blizzOn>0){blizzOn-=dt;blizzard=Math.min(1,blizzard+dt*0.5);}else blizzard=Math.max(0,blizzard-dt*0.4);
       applySky(ph,dt);
@@ -842,8 +850,18 @@ VG.register({
     say('Camp Guide Rosa','Welcome to base camp. Walk through a glowing gate to pick a mountain. Green is easy, gold is medium and red is hard.',12);
     E.announce('Pick your mountain',3);
 
+    function follow(tr){if(done||mode!=='base'||!(tr>=0)||!gates[tr])return;startClimb(gates[tr],true);E.announce('Your party is climbing '+gates[tr].peak.name,3);}
     return {
       update,autopilot,onDeath,
+      onNet(d){if(d&&typeof d.climb==='number')follow(d.climb|0);},
+      netState(){return done?null:{tr:mode==='climb'?tierIdx:-1,c:Math.round(clock*10)/10,bo:Math.round(Math.max(0,blizzOn)*10)/10};},
+      netApply(st){
+        if(done||!st||typeof st!=='object')return;
+        if(mode==='base'){follow(st.tr|0);return;}
+        if((st.tr|0)!==tierIdx)return;
+        const c=+st.c||0;if(Math.abs(clock-c)>0.7)clock=c;
+        const bo=+st.bo||0;if(bo>0.3&&blizzOn<=0){blizzOn=bo;E.announce('A blizzard is rolling in! Find shelter by a fire.',2.6);E.sfx('alarm');}else if(bo<=0&&blizzOn>0.5)blizzOn=0;
+      },
       canDamage(target,by){return target===P;},
       dispose(){done=true;if(hud.parentNode)hud.parentNode.removeChild(hud);}
     };

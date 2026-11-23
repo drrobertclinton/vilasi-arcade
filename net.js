@@ -80,7 +80,7 @@ N.host=function(){const m=N.members();if(!m.length)return null;return m.find(p=>
 /* in a private party only the leader picks and starts; on the public server anyone can */
 N.isHost=function(){if(N.pub&&N.code)return true;const h=N.host();return !!h&&h.peer===N.myPeer;};
 /* whose device runs the computer players this round: the party leader if they are in the round, else the lowest label in it */
-N.roundHost=function(){if(!N.cur)return null;const lead=N.host(),inRound=p=>p.peer===N.myPeer||(p.presence&&p.presence.s&&p.presence.s.r===N.cur.r);
+N.roundHost=function(){if(!N.cur)return null;const lead=N.host(),inRound=p=>p.peer===N.myPeer?!(N.E&&N.E.over):!!(p.presence&&p.presence.s&&p.presence.s.r===N.cur.r&&!p.presence.s.ov);
   if(lead&&inRound(lead))return lead.peer;const m=N.members().filter(inRound);return m.length?m[0].peer:N.myPeer;};
 N.parties=function(){const by={};for(const p of N.peers()){const t=ptOf(p);if(!t||!t.code||t.code===N.code)continue;const o=by[t.code]||(by[t.code]={code:t.code,count:0,leader:null,game:null});o.count++;if(t.h||!o.leader){o.leader=uOf(p).n;if(t.go&&t.live)o.game=t.go.g;}}
   return Object.keys(by).sort().map(k=>by[k]);};
@@ -119,16 +119,23 @@ N.countdown=function(go){if(N._cd)clearTimeout(N._cd);if(N.onCountdown)N.onCount
 /* ---- one round */
 N.begin=function(E){
   const s=N.session;N.session=null;if(!s||!N.code||!N.tr||s.g!==E.def.id)return null;
-  N.E=E;N.cur=s;N.live=false;N.rng=mulberry(s.seed);N.remotes=new Map();N.acc=0;N.hudT=0;N.seen={};
+  N.E=E;N.cur=s;N.live=false;N.rng=mulberry(s.seed);N.remotes=new Map();N.acc=0;N.hudT=0;N.seen={};N.gT=-1e9;N.amRH=false;
   if(N.pt&&(N.pt.h||N.pub)&&N.pt.go&&N.pt.go.r===s.r&&!N.pt.live){N.pt.live=1;pushPt();}
   const el=N.el=document.createElement('div');el.className='vg-party';E.hud.el.appendChild(el);
   return N;
 };
 /* a party is players only: the computer players a game creates are taken out (a game can keep helpers with partyKeepBots) */
 N.dropBot=function(c){const E=N.E;if(!E||(E.def.partyKeepBots&&(E.def.partyKeepBots===true||E.def.partyKeepBots(c))))return;c.removed=true;c.alive=false;c.hp=0;c.frozen=true;c.group.visible=false;c.pos.y=-9999;};
-N.created=function(E){N.live=true;for(const c of E.chars)if(c.isBot)N.dropBot(c);};
+N.created=function(E){N.live=true;for(const c of E.chars)if(c.isBot)N.dropBot(c);
+  /* blocks that break on one device break on every device: the blocks of the shared map are numbered in the order they were made */
+  const W=E.world,by=N.boxBy=new Map();let n=0;for(const b of W.boxes){b.netN=++n;by.set(n,b);}N.brk=[];
+  const orig=W.removeBox.bind(W);W.removeBox=function(b){const was=b&&b.alive;orig(b);if(was&&b.netN&&!N.applying&&N.E===E)N.brk.push(b.netN);};};
+/* a game can tell the rest of the party something (send), and change the map without it being reported as broken blocks (quiet) */
+N.send=function(d){if(N.cur)emit({t:'g',d:d});};
+N.quiet=function(fn){N.applying++;try{fn();}finally{N.applying--;}};
+N.gAge=function(){return (performance.now()-N.gT)/1000;};
 N.end=function(E){
-  if(N.E!==E)return;N.E=null;N.cur=null;N.remotes=new Map();if(N.tr)N.tr.set({s:null,ev:null,b:null});N.ev=[];N.evT=[];
+  if(N.E!==E)return;N.E=null;N.cur=null;N.remotes=new Map();if(N.tr)N.tr.set({s:null,ev:null,b:null,g:null});N.ev=[];N.evT=[];
   if(N.pt&&N.pt.live&&!N.session&&!N._cd){N.pt.live=0;pushPt();}
 };
 function idOf(c){const E=N.E;return c===E.player?'p:'+N.myPeer:c.remote?'p:'+c.remote:'b'+c.botIdx;}
@@ -136,7 +143,7 @@ function botAt(i){for(const c of N.E.chars)if(c.botIdx===i)return c;return null;
 function resolve(id){if(typeof id!=='string')return null;if(id[0]==='b')return botAt(+id.slice(1));const peer=id.slice(2);return peer===N.myPeer?N.E.player:(N.remotes.get(peer)||null);}
 function emit(ev){ev.q=++N.seq;ev.r=N.cur.r;N.ev.push(ev);N.evT.push(performance.now());N.dirty=true;}
 function prune(){const now=performance.now();while(N.ev.length&&(N.ev.length>40||now-N.evT[0]>2500)){N.ev.shift();N.evT.shift();}
-  while(N.ev.length>4&&JSON.stringify(N.ev).length>2300){N.ev.shift();N.evT.shift();}}
+  while(N.ev.length>4&&JSON.stringify(N.ev).length>3600){N.ev.shift();N.evT.shift();}}
 
 /* called by the engine */
 N.damage=function(c,amt,by){
@@ -163,6 +170,8 @@ function handle(ev,from,fromHost){
     const sh=E.drop(V(+ev.o[0]||0,+ev.o[1]||0,+ev.o[2]||0),V(+ev.d[0]||0,+ev.d[1]||0,+ev.d[2]||0).multiplyScalar(spec.speed),spec);sh.owner=c;}
   else if(ev.t==='h'){if(!own(ev.by))return;const c=resolve(ev.to),by=resolve(ev.by);if(!c||c.puppet||!c.alive||!by)return; /* only the owner of the target applies it */
     N.applying++;try{E.damage(c,Math.max(0,Math.min(9999,+ev.a||0)),by);}catch(e){}N.applying--;}
+  else if(ev.t==='g'){if(E.game&&E.game.onNet&&!E.over){try{E.game.onNet(ev.d,from);}catch(e){console.error(e);}}}
+  else if(ev.t==='x'){if(!Array.isArray(ev.n)||!N.boxBy)return;N.applying++;try{for(const n of ev.n.slice(0,80)){const b=N.boxBy.get(n);if(b&&b.alive)E.world.breakBox(b,V(b.x,b.y,b.z));}}catch(e){}N.applying--;}
   else if(ev.t==='k'){if(!own(ev.id))return;const c=resolve(ev.id);if(!c||!c.puppet||!c.alive)return;N.applying++;try{E.kill(c,ev.by?resolve(ev.by):null);}catch(e){}N.applying--;}
 }
 function sync(c,x,y,z,yaw,hp,al,g,tl,dt){
@@ -183,6 +192,7 @@ N.pre=function(dt){
     if(Array.isArray(pr.ev)){let lq=N.last[p.peer];if(lq==null){lq=0;for(const e of pr.ev)if(e&&e.q>lq&&e.r!==N.cur.r)lq=e.q;}
       for(const e of pr.ev){if(e&&e.q>lq){lq=e.q;try{handle(e,p.peer,fromHost);}catch(err){console.error(err);}}}N.last[p.peer]=lq;}
     sync(c,+s.p[0]||0,+s.p[1]||0,+s.p[2]||0,+s.p[3]||0,s.hp,!!s.al,!!s.gr,s.tl,dt);c.kos=+s.ko||0;
+    if(fromHost&&!amHost&&pr.g&&E.game&&E.game.netApply&&!E.over){N.gT=now;try{E.game.netApply(pr.g);}catch(err){console.error(err);}}
     if(fromHost&&!amHost&&Array.isArray(pr.b)){for(const b of pr.b){if(!Array.isArray(b))continue;const bc=botAt(b[0]);if(bc&&!bc.removed)sync(bc,b[1],b[2],b[3],b[4],b[5],!!(b[6]&1),!!(b[6]&2),b[7],dt);}}
   }
   for(const [peer,c] of N.remotes){if(now-(N.seen[peer]||0)>3000){N.remotes.delete(peer);const i=E.remotes.indexOf(c);if(i>=0)E.remotes.splice(i,1);c.alive=false;c.dispose();}}
@@ -198,8 +208,9 @@ N.post=function(dt){
   const E=N.E;if(!E||!N.cur)return;N.acc+=dt;N.hudT-=dt;
   if(N.hudT<=0){N.hudT=0.5;let h='';for(const c of E.remotes)h+='<div><i style="background:#'+('000000'+(c.color>>>0).toString(16)).slice(-6)+'"></i><span>'+VG.esc(c.name)+'</span><b>'+(c.alive?Math.max(0,Math.round(c.hp)):'out')+'</b></div>';
     if(!E.remotes.length)h='<div><span>Waiting for friends...</span></div>';if(N.el.innerHTML!==h)N.el.innerHTML=h;}
-  if(N.acc<SEND)return;N.acc=0;prune();
-  const p=E.player,patch={s:{r:N.cur.r,p:[r2(p.pos.x),r2(p.pos.y),r2(p.pos.z),r2(p.yaw)],hp:Math.round(p.hp),al:p.alive?1:0,gr:p.onGround?1:0,tl:p.tool||null,ko:p.kos}};
+  if(N.acc<SEND)return;N.acc=0;if(N.brk&&N.brk.length)emit({t:'x',n:N.brk.splice(0,70)});prune();
+  const p=E.player,patch={s:{r:N.cur.r,p:[r2(p.pos.x),r2(p.pos.y),r2(p.pos.z),r2(p.yaw)],hp:Math.round(p.hp),al:p.alive?1:0,gr:p.onGround?1:0,tl:p.tool||null,ko:p.kos,ov:E.over?1:0}};
+  patch.g=(N.amRH&&!E.over&&E.game&&E.game.netState)?(E.game.netState()||null):null;
   patch.ev=N.ev.slice();
   if(N.amRH){const b=[];for(const c of E.chars)if(c.isBot&&!c.removed)b.push([c.botIdx,r1(c.pos.x),r1(c.pos.y),r1(c.pos.z),r2(c.yaw),Math.round(c.hp),(c.alive?1:0)|(c.onGround?2:0),c.tool||0]);patch.b=b;}else patch.b=null;
   N.tr.set(patch);

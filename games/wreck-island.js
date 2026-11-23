@@ -38,27 +38,37 @@ VG.register({
     const bots=E.bots(Math.min(10,4+L));bots.forEach((b,i)=>{const a=i/bots.length*6.283;b.teleport(Math.cos(a)*8,1,Math.sin(a)*8);b.setTools(['wreck-island-ball']);b.brain.skill=0.3+L*0.08;b.brain.data.next=0;});
     /* disasters */
     const power=1+(L-1)*0.18;let acc=0,objs=[];
-    const tick=(dt,every)=>{acc+=dt;if(acc>=every){acc-=every;return true;}return false;};
-    const anyone=()=>{const l=E.living();return l.length?pick(l):null;};
+    /* in a party every device follows one shared timeline, and strikes are worked out from the shared seed so everyone sees the same ones */
+    const net=E.net&&E.net.cur?E.net:null,SEED=net?(net.cur.seed|0):0;
+    const mul=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let q=Math.imul(a^a>>>15,1|a);q=q+Math.imul(q^q>>>7,61|q)^q;return((q^q>>>14)>>>0)/4294967296;};
+    const mix=(a,b)=>(SEED^Math.imul(a+1,0x9E3779B1)^Math.imul(b+1,0x85EBCA6B))|0;
+    let R=Math.random,lastN=null;
+    const rnd=(a,b)=>a+R()*(b-a),pk=a=>a[(R()*a.length)|0];
+    const tick=(dt,every)=>{
+      if(!net){acc+=dt;if(acc>=every){acc-=every;return true;}return false;}
+      const n=Math.floor((DUR-t)/every);if(lastN==null||n-lastN>4)lastN=n-1;if(n<=lastN)return false;lastN++;R=mul(mix(wave,lastN));return true;};
+    const anyone=()=>{if(!net){const l=E.living();return l.length?pick(l):null;}
+      const l=[[net.myPeer,p]].concat(E.remotes.map(c=>[c.remote,c])).filter(q=>q[1].alive).sort((a,b)=>a[0]<b[0]?-1:1);return l.length?pk(l)[1]:null;};
     const D={
       meteors:{name:'Meteor shower',tip:'Keep moving and watch the sky',mode:'run',update(dt){if(!tick(dt,0.5/power))return;
-        const t=Math.random()<0.6?anyone():null,x=t?t.pos.x+rand(-7,7):rand(-52,52),z=t?t.pos.z+rand(-7,7):rand(-52,52);
-        E.drop(V(x+rand(-20,20),110,z+rand(-20,20)),V(rand(-4,4),-62,rand(-4,4)),{r:1.5,color:0xff8a3c,trail:0xffc93c,grav:0.2,life:6,explode:{r:6.5,dmg:52}});}},
+        const t=R()<0.6?anyone():null,x=t?t.pos.x+rnd(-7,7):rnd(-52,52),z=t?t.pos.z+rnd(-7,7):rnd(-52,52);
+        E.drop(V(x+rnd(-20,20),110,z+rnd(-20,20)),V(rnd(-4,4),-62,rnd(-4,4)),{r:1.5,color:0xff8a3c,trail:0xffc93c,grav:0.2,life:6,explode:{r:6.5,dmg:52}});}},
       flood:{name:'Flood',tip:'Get to high ground',mode:'high',start(){this.w=E.slab(0,-8,0,900,2,900,0x3aa0ff,0.62);this.t=0;},
         update(dt,k){this.t+=dt;const lvl=-6+Math.min(1,k/0.7)*(11+L*1.3);this.lvl=lvl;this.w.position.y=lvl-1;
           if(tick(dt,0.5))for(const c of E.living())if(c.pos.y+1.1<lvl)E.damage(c,7,null);},
         end(){E.remove(this.w);}},
       twister:{name:'Twister',tip:'Run from the funnel',mode:'flee',start(){this.g=new T.Group();for(let i=0;i<9;i++){const m=new T.Mesh(new T.CylinderGeometry(2+i*0.9,1.6+i*0.9,3,14,1,true),new T.MeshBasicMaterial({color:0xcfd6e6,transparent:true,opacity:0.42,side:T.DoubleSide}));m.position.y=1.5+i*3;this.g.add(m);}
-          E.add(this.g);this.a=rand(0,6);this.pos=V(40,0,0);},
-        update(dt){this.a+=dt;const x=42*Math.sin(this.a*0.33),z=42*Math.sin(this.a*0.47+1);this.pos.set(x,0,z);this.g.position.set(x,0,z);this.g.children.forEach((m,i)=>{m.rotation.y+=dt*(5+i);m.position.x=Math.sin(this.a*3+i)*i*0.25;});
+          E.add(this.g);this.a0=this.a=net?mul(mix(wave,-7))()*6:rand(0,6);this.pos=V(40,0,0);},
+        update(dt){if(net)this.a=this.a0+(DUR-t);else this.a+=dt;const x=42*Math.sin(this.a*0.33),z=42*Math.sin(this.a*0.47+1);this.pos.set(x,0,z);this.g.position.set(x,0,z);this.g.children.forEach((m,i)=>{m.rotation.y+=dt*(5+i);m.position.x=Math.sin(this.a*3+i)*i*0.25;});
           if(tick(dt,0.2)){W.blast(V(x,5,z),7.5,10);
-            for(const c of E.living()){const dx=c.pos.x-x,dz=c.pos.z-z,d=Math.hypot(dx,dz);if(d<9){c.vel.x+=-dz/(d+0.1)*14+rand(-6,6);c.vel.z+=dx/(d+0.1)*14+rand(-6,6);c.vel.y=Math.max(c.vel.y,17);c.onGround=false;E.damage(c,5*power,null);}}}},
+            for(const c of E.living()){const dx=c.pos.x-x,dz=c.pos.z-z,d=Math.hypot(dx,dz);if(d<9){c.vel.x+=-dz/(d+0.1)*14+rnd(-6,6);c.vel.z+=dx/(d+0.1)*14+rnd(-6,6);c.vel.y=Math.max(c.vel.y,17);c.onGround=false;E.damage(c,5*power,null);}}}},
         end(){E.remove(this.g);}},
-      quake:{name:'Earthquake',tip:'Get out of the buildings',mode:'open',start(){this.list=[];for(const b of W.boxes)if(b.breakable&&b.tag==='bld')this.list.push(b);shuffle(this.list);},
+      quake:{name:'Earthquake',tip:'Get out of the buildings',mode:'open',start(){this.list=[];for(const b of W.boxes)if(b.breakable&&b.tag==='bld')this.list.push(b);
+          if(net){const r=mul(mix(wave,-3)),l=this.list;l.sort((a,b)=>a.x-b.x||a.z-b.z||a.y-b.y);for(let i=l.length-1;i>0;i--){const j=(r()*(i+1))|0,q=l[i];l[i]=l[j];l[j]=q;}}else shuffle(this.list);},
         update(dt){E.shake(0.12);if(!tick(dt,0.28))return;for(let n=0;n<5+L&&this.list.length;n++){const b=this.list.pop();if(!b.alive)continue;
           for(const c of E.living())if(Math.abs(c.pos.x-b.x)<2.6&&Math.abs(c.pos.z-b.z)<2.6&&c.pos.y<b.y)E.damage(c,9,null);W.breakBox(b,V(b.x,b.y-2,b.z));}}},
       lightning:{name:'Lightning storm',tip:'Get under a roof',mode:'shelter',start(){E.setSky(0x1b2140,0x4a5378,0x3a4266,60,260);E.setLight(0.42,0.2);},
-        update(dt){if(!tick(dt,0.85/power))return;const t=Math.random()<0.75?anyone():null,x=t?t.pos.x+rand(-5,5):rand(-52,52),z=t?t.pos.z+rand(-5,5):rand(-52,52);
+        update(dt){if(!tick(dt,0.85/power))return;const t=R()<0.75?anyone():null,x=t?t.pos.x+rnd(-5,5):rnd(-52,52),z=t?t.pos.z+rnd(-5,5):rnd(-52,52);
           const hit=W.ray(V(x,140,z),V(0,-1,0),200);if(!hit)return;const pt=hit.point,ring=E.slab(pt.x,pt.y+0.15,pt.z,5,0.2,5,0xfff27a,0.6);objs.push(ring);
           E.after(0.8,()=>{E.remove(ring);if(E.over)return;E.beam(V(pt.x,140,pt.z),pt,0xffffff);E.explode(pt,4.6,48,null,{color:0xdff4ff});});},
         end(){E.setSky.apply(E,SKY);E.setLight(0.66,0.62);}},
@@ -67,9 +77,9 @@ VG.register({
           if(!tick(dt,0.5))return;for(const c of E.living()){const o=V(c.pos.x,c.pos.y+2.5,c.pos.z);if(!W.ray(o,V(0,1,0),120))E.damage(c,3*power,null);}},
         end(){E.setSky.apply(E,SKY);}},
       balls:{name:'Ball storm',tip:'Dodge the giant bouncing balls',mode:'run',update(dt){if(!tick(dt,0.55/power))return;
-        E.drop(V(rand(-48,48),70,rand(-48,48)),V(rand(-14,14),-20,rand(-14,14)),{r:1.7,dmg:22,life:9,grav:1,bounce:0.82,color:pick([0xff6fb5,0x22c9c2,0xffc93c,0xa56bff,0xff8a3c])});}}
+        E.drop(V(rnd(-48,48),70,rnd(-48,48)),V(rnd(-14,14),-20,rnd(-14,14)),{r:1.7,dmg:22,life:9,grav:1,bounce:0.82,color:pk([0xff6fb5,0x22c9c2,0xffc93c,0xa56bff,0xff8a3c])});}}
     };
-    const order=shuffle(Object.keys(D)).slice(0,Math.min(7,2+L));const DUR=22+L*2;
+    const order=shuffle(Object.keys(D)).slice(0,Math.min(7,2+L));let DUR=22+L*2;
     let wave=-1,phase='intro',t=7,cur=null,done=false;
     E.announce('Explore the island',3);
     function mode(){return phase==='active'&&cur?cur.mode:'wander';}
@@ -91,15 +101,30 @@ VG.register({
     return {
       update(dt){
         if(done)return;t-=dt;
+        if(net&&net.live&&!net.amRH&&net.gAge()<1.5&&t<=0)t=0.01; /* the round host moves the timeline on */
         const alive=E.living().length;
         if(phase==='intro'){E.status('Wreck Island. First disaster in '+E.fmt(t));if(t<=0){phase='warn';wave=0;t=4;warn();}}
-        else if(phase==='warn'){E.status('Incoming: '+cur.name+' in '+E.fmt(t));if(t<=0){phase='active';t=DUR;acc=0;if(cur.start)cur.start();}}
-        else if(phase==='active'){E.status(cur.name+': '+cur.tip+'  '+E.fmt(t));cur.update(dt,1-t/DUR);
+        else if(phase==='warn'){E.status('Incoming: '+cur.name+' in '+E.fmt(t));if(t<=0){phase='active';t=DUR;acc=0;lastN=null;if(cur.start)cur.start();}}
+        else if(phase==='active'){E.status(cur.name+': '+cur.tip+'  '+E.fmt(t));cur.update(dt,1-t/DUR);R=Math.random;
           if(t<=0){if(cur.end)cur.end();for(const o of objs)E.remove(o);objs=[];wave++;if(wave>=order.length){win();return;}phase='calm';t=3.5;E.announce('It passed. Get ready...',2.5);}}
         else if(phase==='calm'){E.status('Wave '+(wave+1)+' of '+order.length+' is coming');if(t<=0){phase='warn';t=3.5;warn();}}
         for(const b of bots)if(b.alive)botThink(b,dt);
         E.score([{label:'Wave',value:Math.min(order.length,Math.max(1,wave+1))+' / '+order.length,color:0xffc93c},{label:'Still standing',value:alive,color:0x35d07f,me:true}]);
         if(!p.alive){done=true;if(cur&&phase==='active'&&cur.end)cur.end();E.after(1.2,()=>E.finish({win:false,title:'Wiped out',lines:['You made it to wave '+Math.max(1,wave+1)+' of '+order.length+'.']}));}
+      },
+      /* party: the round host says which disaster is on and how long is left; everyone else follows */
+      netState(){return done?null:{w:wave,ph:phase,t:Math.round(t*10)/10,d:DUR,o:order.join(',')};},
+      netApply(s){
+        if(done||!s||typeof s!=='object')return;
+        const o=String(s.o||'').split(',').filter(k=>D[k]);if(o.length&&o.join(',')!==order.join(',')){order.length=0;for(const k of o)order.push(k);}
+        if(+s.d>0)DUR=+s.d;
+        const w=s.w|0,ph=s.ph;if(['intro','warn','active','calm'].indexOf(ph)<0||w>=order.length||(ph!=='intro'&&w<0))return;
+        if(w!==wave||ph!==phase){
+          if(phase==='active'&&cur){if(cur.end)cur.end();for(const q of objs)E.remove(q);objs=[];}
+          wave=w;phase=ph;
+          if(ph==='warn')warn();else if(ph==='active'){cur=D[order[w]];acc=0;lastN=null;if(cur.start)cur.start();}else if(ph==='calm')E.announce('It passed. Get ready...',2.5);
+          t=+s.t||0;}
+        else if(Math.abs(t-(+s.t||0))>0.5)t=+s.t||0;
       },
       autopilot(dt){if(!p.brain){p.brain=new VG.Brain(p,E);p.brain.data.next=0;p.brain.skill=0.5;}botThink(p,dt);},
       dispose(){}
