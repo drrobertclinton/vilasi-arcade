@@ -65,6 +65,58 @@ VG.register({
       for(const s of [0,-0.6,0.6]){const o=V(a.x-uz*s,1,a.z+ux*s);if(W.ray(o,V(ux,0,uz),len))return false;}return true;}
     function seenByThird(a,b){for(const o of E.chars){if(!o.alive||o===a||o===b)continue;if(dist2(o.pos,a.pos)<22&&dist2(o.pos,b.pos)<22&&los(o,a)&&los(o,b))return true;}return false;}
 
+    /* ------------------------------------------------ party of three or more: people only, no computer players.
+       One person is the Phantom, one the Detective, everyone else a Guest. Every device works the roles out the same way. */
+    const net=E.net,roster=net&&net.cur&&Array.isArray(net.cur.m)?net.cur.m:null;
+    if(roster&&roster.length>=3){
+      const p=E.player,PAL=shuffle(CNAMES.slice()),phI=Math.floor(Math.random()*roster.length);
+      let dI=Math.floor(Math.random()*(roster.length-1));if(dI>=phI)dI++;
+      const order=shuffle([0,1,2,3,4,5,6,7,8]),myI=roster.indexOf(net.myPeer);
+      const roleAt=i=>i<0?'guest':i===phI?'phantom':i===dI?'detective':'guest',myRole=roleAt(myI),phPeer=roster[phI];
+      const roleC=c=>c===p?myRole:((c&&c.data&&c.data.role)||'guest');
+      function dress(c,i){const k=(i<0?PAL.length-1:i)%PAL.length;recolor(c,PAL[k][1]);c.data.cname=PAL[k][0];c.showTag(false);c.team=null;}
+      dress(p,myI);p.data.role=myRole;p.setTools(myRole==='phantom'?['zapper']:myRole==='detective'?['catcher']:[]);p.group.userData.hold.visible=false;
+      {const r=order[(myI<0?roster.length:myI)%9],i=r%3,j=Math.floor(r/3);p.teleport(cx(i)+rand(-2,2),0,cz(j)+rand(-2,2));p.yaw=rand(0,6.28);}
+      const ROLE={guest:'a Guest',detective:'the Detective',phantom:'the Phantom'};
+      const GOAL={guest:'Collect coins and stay near other guests. Spot the Phantom!',detective:'Watch for a zap, then catch the Phantom. Do not catch a guest!',phantom:'Zap guests when nobody can see you.'};
+      E.announce('You are '+ROLE[myRole],3.6);
+      let coins=0;const coinList=[];
+      {const rr=[0,1,2,3,4,5,6,7,8,2,4,6],arms=[[6.5,0],[-6.5,0],[0,6.5],[0,-6.5]];
+        rr.forEach((r,k)=>{const i=r%3,j=Math.floor(r/3),a=arms[k%4],x=cx(i)+a[0],z=cz(j)+a[1];
+          coinList.push(E.pickup({pos:V(x,1.3,z),color:0xffd23e,size:0.5,bots:false,onTake(c){if(c!==p)return false;coins++;return true;}}));});}
+      let ended=false,phSeen=false,metAnyone=false,lastGuests=-1;
+      function finish(crewWon,reason){
+        if(ended)return;ended=true;
+        E.after(0.9,()=>{const win=(myRole!=='phantom')===crewWon,lines=[];let title;
+          if(reason==='caught'){title=win?'Phantom caught!':'The Phantom was caught';lines.push(myRole==='phantom'?'The Detective found you and caught you.':'The Detective caught the Phantom.');}
+          else if(reason==='left'){title='The Phantom left';lines.push('The Phantom left the manor, so the guests win.');}
+          else if(reason==='time'){title=win?'The lights stay on!':'Time ran out';lines.push(win?'The clock ran out and the guests are still safe, so the guests win.':'The clock ran out before you zapped every guest.');}
+          else{title=win?'Phantom wins!':'The Phantom got everyone';lines.push(win?'You zapped out every guest without getting caught.':'Every guest was zapped out.');}
+          if(myRole!=='phantom'&&!p.alive&&win)lines.push('You were zapped out, but your side won, so you win too.');
+          if(myRole==='guest')lines.push('You collected '+coins+' of '+coinList.length+' coins.');
+          E.finish({win,title,stars:win?(p.alive?3:2):undefined,lines});});}
+      return {
+        onRemote(c,peer){const i=roster.indexOf(peer);dress(c,i);c.data.role=roleAt(i);c.group.userData.hold.visible=false;},
+        update(dt){
+          if(ended)return;
+          let guests=(myRole!=='phantom'&&p.alive)?1:0,ph=myRole==='phantom'?p:null;
+          for(const c of E.remotes){metAnyone=true;if(c.remote===phPeer)ph=c;else if(c.alive)guests++;}
+          if(lastGuests>=0&&guests<lastGuests&&p.alive)E.announce('Someone was zapped out!',1.8);lastGuests=guests;
+          if(ph){phSeen=true;if(!ph.alive)finish(true,'caught');}else if(phSeen||E.time>10)finish(true,'left');
+          if(!ended){if(guests===0&&(metAnyone||E.time>10))finish(false,'allout');else if(E.time>=TOTAL)finish(true,'time');}
+          const left=Math.max(0,TOTAL-E.time),r=roomOf(p.pos.x,p.pos.z),rn=ROOMS[r[1]][r[0]];
+          if(p.alive)E.status('You are '+ROLE[myRole]+'  |  '+rn+'  |  '+E.fmt(left)+'  |  '+GOAL[myRole]);
+          else E.status('You were zapped out  |  '+E.fmt(left)+'  |  Watch how the round ends');
+          E.score([{label:'Coins',value:coins,color:0xffd23e,me:true},{label:'Guests left',value:guests,color:0x35d07f}]);
+        },
+        autopilot(dt){},
+        canDamage(target,by){if(!by)return false;const r=roleC(by);return r==='phantom'?roleC(target)!=='phantom':r==='detective'?roleC(target)==='phantom':false;},
+        onDeath(c,by){if(c===p&&!ended)E.announce('You were zapped out!',3);},
+        onCatch(shooter,hit){if(ended||shooter!==p||!hit||roleC(hit)==='phantom')return;E.announce('That was an innocent guest! You are out.',3);E.kill(p,null);},
+        dispose(){}
+      };
+    }
+
     /* ------------------------------------------------ players and roles */
     const p=E.player,names=shuffle(VG.BOT_NAMES.slice()),cols=shuffle(CNAMES.slice());
     const bots=[];for(let k=0;k<N-1;k++)bots.push(E.spawn({name:names[k],color:cols[k+1][1],team:null,bot:true}));

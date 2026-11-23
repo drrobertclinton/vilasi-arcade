@@ -45,7 +45,7 @@ function fbTransport(db){
     peers(){const now=Date.now()+offset,out=[{peer:id,isMe:true,sameTab:true,presence:mine}];others.forEach((v,k)=>{if(now-v.t<15000)out.push({peer:k,isMe:false,sameTab:false,presence:v.p});});return out;},
     set(patch){mine=Object.assign({},mine);for(const k in patch){if(patch[k]===null)delete mine[k];else mine[k]=patch[k];}
       const c=(mine.pt&&mine.pt.code)||null;if(c!==code){if(c)attach(c);else detach();}
-      if(!ref||timer)return;const wait=95-(Date.now()-lastW);if(wait<=0)flush();else timer=setTimeout(flush,wait);}
+      if(!ref||timer)return;const n=others.size,wait=(n>=5?220:n>=3?150:95)-(Date.now()-lastW);if(wait<=0)flush();else timer=setTimeout(flush,wait);}
   };
 }
 /* the ideas box on the website */
@@ -71,23 +71,28 @@ N.hello=function(){const P=VG.profile||{};if(N.tr)N.tr.set({u:{n:String(P.name||
 N.peers=function(){if(!N.tr)return[];let l;try{l=N.tr.peers()||[];}catch(e){l=[];}
   for(const p of l)if(p.isMe&&p.sameTab){N.myPeer=p.peer;break;}return l;};
 function ptOf(p){return p.peer===N.myPeer?(N.pt||null):(p.presence&&p.presence.pt)||null;}
-function uOf(p){const u=(p.presence&&p.presence.u)||{};return{n:String(u.n||'Player').slice(0,14),c:typeof u.c==='number'?u.c:0x3d8bff};}
+/* on the public server nobody's typed name is shown: everyone is "Player" plus a number */
+function uOf(p){const u=(p.presence&&p.presence.u)||{},c=typeof u.c==='number'?u.c:0x3d8bff;if(N.pub){let h=0;for(const ch of String(p.peer))h=(h*31+ch.charCodeAt(0))%9000;return{n:'Player '+(h%90+10),c};}return{n:String(u.n||'Player').slice(0,14),c};}
+N.nameOf=uOf;
 N.members=function(){if(!N.code)return[];return N.peers().filter(p=>{const t=ptOf(p);return t&&t.code===N.code;}).sort((a,b)=>a.peer<b.peer?-1:1);};
 /* the party leader: whoever holds the leader mark (lowest label wins a tie); with nobody marked, the lowest label */
 N.host=function(){const m=N.members();if(!m.length)return null;return m.find(p=>{const t=ptOf(p);return t&&t.h;})||m[0];};
-N.isHost=function(){const h=N.host();return !!h&&h.peer===N.myPeer;};
+/* in a private party only the leader picks and starts; on the public server anyone can */
+N.isHost=function(){if(N.pub&&N.code)return true;const h=N.host();return !!h&&h.peer===N.myPeer;};
 /* whose device runs the computer players this round: the party leader if they are in the round, else the lowest label in it */
 N.roundHost=function(){if(!N.cur)return null;const lead=N.host(),inRound=p=>p.peer===N.myPeer||(p.presence&&p.presence.s&&p.presence.s.r===N.cur.r);
   if(lead&&inRound(lead))return lead.peer;const m=N.members().filter(inRound);return m.length?m[0].peer:N.myPeer;};
 N.parties=function(){const by={};for(const p of N.peers()){const t=ptOf(p);if(!t||!t.code||t.code===N.code)continue;const o=by[t.code]||(by[t.code]={code:t.code,count:0,leader:null,game:null});o.count++;if(t.h||!o.leader){o.leader=uOf(p).n;if(t.go&&t.live)o.game=t.go.g;}}
   return Object.keys(by).sort().map(k=>by[k]);};
 function pushPt(){if(N.tr)N.tr.set({pt:N.pt});}
-N.create=function(){let c='';for(let i=0;i<4;i++)c+=LETTERS[(Math.random()*LETTERS.length)|0];N.code=c;N.pt={code:c,h:1,g:null,go:null,live:0};N.played=0;pushPt();N.changed();};
-N.join=function(code){code=String(code||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);if(code.length<4)return false;N.code=code;N.pt={code,h:0,g:null,go:null,live:0};N.played=0;pushPt();N.changed();return true;};
-N.leave=function(){N.code=null;N.pt=null;N.go=null;if(N.tr)N.tr.set({pt:null,s:null,ev:null,b:null});N.changed();};
+N.create=function(){N.pub=false;N.full=false;let c='';for(let i=0;i<4;i++)c+=LETTERS[(Math.random()*LETTERS.length)|0];N.code=c;N.pt={code:c,h:1,g:null,go:null,live:0};N.played=0;pushPt();N.changed();};
+N.PUBLIC='OPEN';N.MAXPUB=8;
+N.join=function(code){code=String(code||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);if(code.length<4)return false;N.code=code;N.pub=code===N.PUBLIC;N.joinedAt=Date.now();N.full=false;N.pt={code,h:0,g:null,go:null,live:0};N.played=0;pushPt();N.changed();return true;};
+N.joinPublic=function(){return N.join(N.PUBLIC);};
+N.leave=function(){N.pub=false;N.code=null;N.pt=null;N.go=null;if(N.tr)N.tr.set({pt:null,s:null,ev:null,b:null});N.changed();};
 N.pick=function(id){if(!N.pt||!N.isHost())return;N.pt.g=id;pushPt();N.changed();};
 /* the party leader starts a round for everyone */
-N.start=function(id){if(!N.pt||!N.isHost()||!VG.byId[id])return;N.pt.h=1;N.pt.g=id;N.pt.go={g:id,sd:(Math.random()*2147483647)|0,r:Math.floor(Date.now()/100)%1000000000};N.pt.live=1;pushPt();N.poll();};
+N.start=function(id){if(!N.pt||!N.isHost()||!VG.byId[id])return;if(!N.pub)N.pt.h=1;N.pt.g=id;N.pt.go={g:id,sd:(Math.random()*2147483647)|0,r:Math.floor(Date.now()/100)%1000000000,m:N.members().map(p=>p.peer).slice(0,12)};N.pt.live=1;pushPt();N.poll();};
 N.changed=function(){N.sig='';if(N.onChange)N.onChange();};
 
 /* runs four times a second, in the menus and during a round */
@@ -95,7 +100,11 @@ N.poll=function(){
   if(!N.tr)return;const peers=N.peers();
   if(N.code&&N.pt){
     const h=N.host();
-    if(h){const t=ptOf(h);
+    if(N.pub){ /* public server: the newest round anyone started is the one everybody plays; it holds a limited number of players */
+      const m=N.members();if(m.length>N.MAXPUB&&Date.now()-N.joinedAt<4000){N.leave();N.full=true;N.changed();return;}
+      let best=null;for(const p of m){const t=ptOf(p);if(t&&t.go&&t.live&&VG.byId[t.go.g]&&(!best||t.go.r>best.r))best=t.go;}
+      if(best&&best.r!==N.played){N.played=best.r;N.go=best;N.countdown(best);}
+    }else if(h){const t=ptOf(h);
       if(h.peer!==N.myPeer||N.pt.h)N._noLead=0;
       else{N._noLead=(N._noLead||0)+1;if(N._noLead>=12){N.pt.h=1;if(N.go&&!N.pt.go)N.pt.go=N.go;N.pt.live=N.E?1:0;pushPt();}} /* the leader has been gone 3 seconds: the next player takes over */
       if(h.peer!==N.myPeer&&N.pt.h){N.pt.h=0;pushPt();} /* two leaders after a hiccup: the lower label keeps it */
@@ -105,13 +114,13 @@ N.poll=function(){
   for(const p of peers){const t=ptOf(p),u=uOf(p);if(t&&t.code)sig+=p.peer+':'+t.code+':'+(t.h?1:0)+':'+(t.g||'')+':'+(t.live?1:0)+':'+u.n+':'+u.c+':'+((p.presence&&p.presence.s)?1:0)+';';}
   if(sig!==N.sig){N.sig=sig;if(N.onChange)N.onChange();}
 };
-N.countdown=function(go){if(N._cd)clearTimeout(N._cd);if(N.onCountdown)N.onCountdown(go,2500);N._cd=setTimeout(()=>{N._cd=null;if(N.onCountdown)N.onCountdown(null);if(!N.code)return;N.session={g:go.g,seed:go.sd,r:go.r};VG.play(go.g);},2500);};
+N.countdown=function(go){if(N._cd)clearTimeout(N._cd);if(N.onCountdown)N.onCountdown(go,2500);N._cd=setTimeout(()=>{N._cd=null;if(N.onCountdown)N.onCountdown(null);if(!N.code)return;N.session={g:go.g,seed:go.sd,r:go.r,m:Array.isArray(go.m)?go.m:null};VG.play(go.g);},2500);};
 
 /* ---- one round */
 N.begin=function(E){
   const s=N.session;N.session=null;if(!s||!N.code||!N.tr||s.g!==E.def.id)return null;
   N.E=E;N.cur=s;N.live=false;N.rng=mulberry(s.seed);N.remotes=new Map();N.acc=0;N.hudT=0;N.seen={};
-  if(N.pt&&N.pt.h&&!N.pt.live){N.pt.live=1;pushPt();}
+  if(N.pt&&(N.pt.h||N.pub)&&N.pt.go&&N.pt.go.r===s.r&&!N.pt.live){N.pt.live=1;pushPt();}
   const el=N.el=document.createElement('div');el.className='vg-party';E.hud.el.appendChild(el);
   return N;
 };
@@ -120,7 +129,7 @@ N.dropBot=function(c){const E=N.E;if(!E||(E.def.partyKeepBots&&(E.def.partyKeepB
 N.created=function(E){N.live=true;for(const c of E.chars)if(c.isBot)N.dropBot(c);};
 N.end=function(E){
   if(N.E!==E)return;N.E=null;N.cur=null;N.remotes=new Map();if(N.tr)N.tr.set({s:null,ev:null,b:null});N.ev=[];N.evT=[];
-  if(N.pt&&N.pt.h&&N.pt.live&&!N.session&&!N._cd){N.pt.live=0;pushPt();}
+  if(N.pt&&N.pt.live&&!N.session&&!N._cd){N.pt.live=0;pushPt();}
 };
 function idOf(c){const E=N.E;return c===E.player?'p:'+N.myPeer:c.remote?'p:'+c.remote:'b'+c.botIdx;}
 function botAt(i){for(const c of N.E.chars)if(c.botIdx===i)return c;return null;}
@@ -168,7 +177,7 @@ N.pre=function(dt){
   for(const p of peers){
     if(p.peer===N.myPeer)continue;const pr=p.presence||{},t=pr.pt,s=pr.s;if(!t||t.code!==N.code||!s||s.r!==N.cur.r||!Array.isArray(s.p))continue;
     let c=N.remotes.get(p.peer);
-    if(!c){const u=uOf(p);c=new VG.Char(E,{name:u.n,color:u.c});c.remote=p.peer;c.puppet=true;c.team=E.player.team;c.pos.set(+s.p[0]||0,+s.p[1]||0,+s.p[2]||0);N.remotes.set(p.peer,c);E.remotes.push(c);}
+    if(!c){const u=uOf(p);c=new VG.Char(E,{name:u.n,color:u.c});c.remote=p.peer;c.puppet=true;c.team=E.player.team;c.pos.set(+s.p[0]||0,+s.p[1]||0,+s.p[2]||0);N.remotes.set(p.peer,c);E.remotes.push(c);if(E.game&&E.game.onRemote){try{E.game.onRemote(c,p.peer);}catch(e){console.error(e);}}}
     N.seen[p.peer]=now;const fromHost=rh===p.peer;
     /* things that happened (hits, tool uses, knockouts) first, then where everyone is now */
     if(Array.isArray(pr.ev)){let lq=N.last[p.peer];if(lq==null){lq=0;for(const e of pr.ev)if(e&&e.q>lq&&e.r!==N.cur.r)lq=e.q;}

@@ -324,26 +324,29 @@ function friends(){
     var ps=N.parties();
     h+='<p class="sub">Start a party and tell your friends the code, or join a friend\'s party. Everyone needs Vilasi Arcade open.</p><div class="cards">'+
       '<div class="card"><h3>Start a party</h3><p class="note">You become the party leader and pick the games.</p><button class="play" type="button" id="mkParty">START A PARTY</button></div>'+
-      '<div class="card"><h3>Join a party</h3><p class="note">Type the four letters your friend gives you.</p><form class="joinrow" id="joinForm"><input id="jcode" maxlength="4" autocomplete="off" autocapitalize="characters" aria-label="Party code" placeholder="ABCD"><button class="send" type="submit">Join</button></form><p class="note" id="jmsg" role="status"></p></div></div>';
+      '<div class="card"><h3>Join a party</h3><p class="note">Type the four letters your friend gives you.</p><form class="joinrow" id="joinForm"><input id="jcode" maxlength="4" autocomplete="off" autocapitalize="characters" aria-label="Party code" placeholder="ABCD"><button class="send" type="submit">Join</button></form><p class="note" id="jmsg" role="status"></p></div>'+
+      '<div class="card"><h3>Public server</h3><p class="note">Play with anyone who is online. No code needed. Everyone shows as "Player" and a number, not their own name.</p><button class="play" type="button" id="pubBtn">JOIN PUBLIC SERVER</button><p class="note" role="status">'+(N.full?'The public server is full right now. Try again in a minute.':'')+'</p></div></div>';
     if(ps.length){h+='<h2>Parties open right now</h2><ul class="people">';ps.forEach(function(p){h+='<li><span>'+esc(p.leader||'A friend')+'\'s party &middot; '+p.count+(p.count===1?' player':' players')+(p.game&&VG.byId[p.game]?' &middot; playing '+esc(VG.byId[p.game].name):'')+'</span><em><button class="send" type="button" data-join="'+esc(p.code)+'">Join '+esc(p.code)+'</button></em></li>';});h+='</ul>';}
     view.innerHTML=h;
     document.getElementById('mkParty').addEventListener('click',function(){N.create();if(wantGame)N.pick(wantGame);});
+    document.getElementById('pubBtn').addEventListener('click',function(){N.joinPublic();if(wantGame)N.pick(wantGame);});
     document.getElementById('joinForm').addEventListener('submit',function(e){e.preventDefault();if(!N.join(document.getElementById('jcode').value))document.getElementById('jmsg').textContent='A party code is four letters.';});
     view.querySelectorAll('[data-join]').forEach(function(b){b.addEventListener('click',function(){N.join(b.getAttribute('data-join'));});});
     return;
   }
-  var mem=N.members(),host=N.host(),lead=N.isHost(),pt=host?(host.peer===N.myPeer?N.pt:(host.presence.pt||{})):{},picked=pt.g&&VG.byId[pt.g]?pt.g:null;
-  h+='<p class="sub">Tell your friends this code. They choose Play with friends, then Join a party.</p><div class="code" aria-label="Party code">'+esc(N.code)+'</div>'+
+  var mem=N.members(),host=N.host(),lead=N.isHost(),pt=N.pub?(N.pt||{}):(host?(host.peer===N.myPeer?N.pt:(host.presence.pt||{})):{}),picked=pt.g&&VG.byId[pt.g]?pt.g:null;
+  if(N.pub)h+='<p class="sub">You are on the public server. Anyone here can pick a game and start a round for everybody.</p><div class="code" aria-label="Public server">PUBLIC</div><h2>Here now</h2><ul class="people">';
+  else h+='<p class="sub">Tell your friends this code. They choose Play with friends, then Join a party.</p><div class="code" aria-label="Party code">'+esc(N.code)+'</div>'+
     '<h2>In this party</h2><ul class="people">';
   mem.forEach(function(p){var u=p.presence&&p.presence.u||{},me=p.peer===N.myPeer,t=me?N.pt:(p.presence.pt||{});
-    h+='<li><i style="background:'+hex(typeof u.c==='number'?u.c:0x3d8bff)+'"></i><span>'+esc(me?profile.name:String(u.n||'Player').slice(0,14))+(me?' (you)':'')+'</span><em>'+(host&&host.peer===p.peer?'Party leader':'')+((p.presence&&p.presence.s)?' &middot; in a round':'')+'</em></li>';});
+    h+='<li><i style="background:'+hex(typeof u.c==='number'?u.c:0x3d8bff)+'"></i><span>'+esc(N.nameOf(p).n)+(me?' (you)':'')+'</span><em>'+(!N.pub&&host&&host.peer===p.peer?'Party leader':'')+((p.presence&&p.presence.s)?' &middot; in a round':'')+'</em></li>';});
   h+='</ul>';
-  if(mem.length<2)h+='<p class="note">Waiting for friends to join. You can start now and they can jump in when they arrive.</p>';
+  if(mem.length<2)h+='<p class="note">'+(N.pub?'Nobody else is here yet. You can start now and others can jump in when they arrive.':'Waiting for friends to join. You can start now and they can jump in when they arrive.')+'</p>';
   if(lead){
     h+='<h2>Pick a game</h2><div class="pickrow">';VG.games.forEach(function(g){h+='<button type="button" data-pick="'+g.id+'"'+(g.id===picked?' class="on" aria-pressed="true"':' aria-pressed="false"')+'>'+esc(g.name)+'</button>';});
     h+='</div><button class="play" type="button" id="startBtn"'+(picked?'':' disabled')+'>'+(picked?'START '+esc(VG.byId[picked].name.toUpperCase()):'PICK A GAME')+'</button>';
   }else h+='<h2>'+(picked?esc(VG.byId[picked].name):'Waiting')+'</h2><p class="note">'+(picked?'The party leader picked this game. It starts on every device when they press Start.':'The party leader is picking a game.')+'</p>';
-  h+='<div><button class="plain" type="button" id="leaveBtn">Leave this party</button></div>';
+  h+='<div><button class="plain" type="button" id="leaveBtn">'+(N.pub?'Leave the public server':'Leave this party')+'</button></div>';
   view.innerHTML=h;
   view.querySelectorAll('[data-pick]').forEach(function(b){b.addEventListener('click',function(){N.pick(b.getAttribute('data-pick'));});});
   var sb=document.getElementById('startBtn');if(sb)sb.addEventListener('click',function(){if(picked)N.start(picked);});
