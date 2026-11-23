@@ -92,7 +92,7 @@ N.joinPublic=function(){return N.join(N.PUBLIC);};
 N.leave=function(){N.pub=false;N.code=null;N.pt=null;N.go=null;if(N.tr)N.tr.set({pt:null,s:null,ev:null,b:null});N.changed();};
 N.pick=function(id){if(!N.pt||!N.isHost())return;N.pt.g=id;pushPt();N.changed();};
 /* the party leader starts a round for everyone */
-N.start=function(id){if(!N.pt||!N.isHost()||!VG.byId[id])return;if(!N.pub)N.pt.h=1;N.pt.g=id;N.pt.go={g:id,sd:(Math.random()*2147483647)|0,r:Math.floor(Date.now()/100)%1000000000,m:N.members().map(p=>p.peer).slice(0,12)};N.pt.live=1;pushPt();N.poll();};
+N.start=function(id){if(!N.pt||!N.isHost()||!VG.byId[id])return;if(!N.pub)N.pt.h=1;N.pt.g=id;N.pt.go={g:id,sd:(VG.byId[id].partySeed?(VG.byId[id].partySeed()|0):(Math.random()*2147483647)|0),r:Math.floor(Date.now()/100)%1000000000,m:N.members().map(p=>p.peer).slice(0,12)};N.pt.live=1;pushPt();N.poll();};
 N.changed=function(){N.sig='';if(N.onChange)N.onChange();};
 
 /* runs four times a second, in the menus and during a round */

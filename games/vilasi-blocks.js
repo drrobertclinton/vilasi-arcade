@@ -83,13 +83,16 @@ const CSS='.vb-ui{position:absolute;right:12px;top:118px;display:flex;flex-direc
 
 VG.register({
   id:'vilasi-blocks',name:'Vilasi Blocks',tagline:'An open world made of blocks. Break them, place them, build anything.',color:0x58b45a,levels:1,custom:true,
+  /* a party builds in the leader's own saved world */
+  partySeed(){let sv=null;try{sv=JSON.parse(localStorage.getItem('va_blocks_v1')||'null');}catch(e){}
+    if(sv&&typeof sv.seed==='number')return sv.seed;const sd=(Math.random()*2147483647)|0;try{localStorage.setItem('va_blocks_v1',JSON.stringify({seed:sd,e:{}}));}catch(e){}return sd;},
   howTo:[
     'Walk around the island and look at a block. A white outline shows the block you are aiming at.',
     'Click or tap Break to remove a block. Right-click, press R, or tap Build to place the block you are holding.',
     'Keys 1 to 9 or the mouse wheel change the block in your hand. Press E or tap Blocks to swap in any block.',
     'Press F or tap Fly to fly. While flying, Space goes up and Shift goes down.',
     'Your world is saved on this device every few seconds, so your builds are there when you come back.',
-    'With friends, everyone builds in the same world at the same time.'
+    'With friends, everyone builds in the party leader\'s world at the same time, and it is saved on the leader\'s device.'
   ],
   create(E){
     buildAtlas();
@@ -97,7 +100,9 @@ VG.register({
     const net=E.net&&E.net.cur?E.net:null,SAVE='va_blocks_v1';
     if(!document.getElementById('vb-css')){const st=document.createElement('style');st.id='vb-css';st.textContent=CSS;document.head.appendChild(st);}
     E.hud.el.classList.add('vb');
-    let save=null;if(!net){try{save=JSON.parse(localStorage.getItem(SAVE)||'null');}catch(e){save=null;}if(!save||typeof save.seed!=='number')save=null;}
+    let save=null;try{save=JSON.parse(localStorage.getItem(SAVE)||'null');}catch(e){save=null;}if(!save||typeof save.seed!=='number')save=null;
+    if(net&&save&&save.seed!==(net.cur.seed|0))save=null;
+    const owner=!!(net&&save),canSave=!net||owner; /* in a party the world belongs to whoever's saved world it is */
     const SEED=net?(net.cur.seed|0):save?save.seed:((Math.random()*2147483647)|0);
     const edits=(save&&save.e&&typeof save.e==='object')?save.e:{};
     /* ---- world data */
@@ -172,7 +177,7 @@ VG.register({
     function spawnSpot(){let bx=WX/2,bz=WZ/2,bh=-1;for(let r=0;r<30&&bh<0;r++)for(let a=0;a<12;a++){const x=(WX/2+Math.cos(a/12*6.283)*r*1.5)|0,z=(WZ/2+Math.sin(a/12*6.283)*r*1.5)|0,h=hgt[z*WX+x];if(h>SEA+1){bx=x;bz=z;bh=h;break;}}
       pos.set(bx+0.5,topY(bx,bz)+0.05,bz+0.5);vel.set(0,0,0);}
     if(net){const m=net.cur.m||[],i=Math.max(0,m.indexOf(net.myPeer));spawnSpot();pos.x+=(i%4)*1.2-1.8;pos.z+=Math.floor(i/4)*1.2;pos.y=topY(pos.x,pos.z)+0.05;}
-    else if(save&&Array.isArray(save.p)&&save.p.length>=5){pos.set(+save.p[0]||0,+save.p[1]||0,+save.p[2]||0);C.yaw=+save.p[3]||0;C.pitch=+save.p[4]||0;if(!(pos.y>-5&&pos.y<WY+20))spawnSpot();}
+    else if(!net&&save&&Array.isArray(save.p)&&save.p.length>=5){pos.set(+save.p[0]||0,+save.p[1]||0,+save.p[2]||0);C.yaw=+save.p[3]||0;C.pitch=+save.p[4]||0;if(!(pos.y>-5&&pos.y<WY+20))spawnSpot();}
     else spawnSpot();
     const HW=0.3,HH=1.8;
     const hits=(x,y,z)=>{const x0=Math.floor(x-HW),x1=Math.floor(x+HW),y0=Math.floor(y),y1=Math.floor(y+HH-0.001),z0=Math.floor(z-HW),z1=Math.floor(z+HW);
@@ -181,7 +186,8 @@ VG.register({
         /* slide right up to the block */
         for(let k=0;k<6;k++){const h=st/Math.pow(2,k+1);pos[ax]+=h;if(hits(pos.x,pos.y,pos.z))pos[ax]-=h;}return true;}}return false;}
     /* ---- hotbar */
-    const hot=(save&&Array.isArray(save.hot)&&save.hot.length===9&&save.hot.every(b=>PLACE.indexOf(b)>=0))?save.hot.slice():HOT0.slice();
+    let mySave=save;if(!canSave){try{mySave=JSON.parse(localStorage.getItem(SAVE)||'null');}catch(e){mySave=null;}}
+    const hot=(mySave&&Array.isArray(mySave.hot)&&mySave.hot.length===9&&mySave.hot.every(b=>PLACE.indexOf(b)>=0))?mySave.hot.slice():HOT0.slice();
     PLACE.forEach(id=>{VG.TOOLS['vb:'+id]={name:B[id].name,cd:0.05,use(){return false;}};});
     const setHot=()=>{const cur=P.tools.indexOf(P.tool);P.setTools(hot.map(b=>'vb:'+b));P.equip(P.tools[Math.max(0,cur)]);E.hud.tools();};
     P.setTools(hot.map(b=>'vb:'+b));
@@ -227,13 +233,13 @@ VG.register({
       return null;
     }
     /* ---- changing the world */
-    let dirty=false,saveT=5,noSave=false;
+    let dirty=false,saveT=5,noSave=false,nEd=Object.keys(edits).length,queue=null,qi=0,qT=0,chkT=1,lowT=0,lastFull=-99;
     function setBlock(x,y,z,id,told){
       if(x<0||z<0||x>=WX||z>=WZ||y<1||y>=WY)return false;const i=idx(x,y,z);if(blocks[i]===id)return false;
       blocks[i]=id;mark(x,z);mark(x-1,z);mark(x+1,z);mark(x,z-1);mark(x,z+1);
-      if(net){if(!told)net.send({b:[i,id]});}else{edits[i]=id;dirty=true;}return true;
+      if(!(i in edits))nEd++;edits[i]=id;if(canSave)dirty=true;if(net&&!told)net.send({b:[i,id]});return true;
     }
-    function doSave(){if(net||noSave)return;try{localStorage.setItem(SAVE,JSON.stringify({seed:SEED,e:edits,p:[+pos.x.toFixed(2),+pos.y.toFixed(2),+pos.z.toFixed(2),+C.yaw.toFixed(3),+C.pitch.toFixed(3)],hot}));}catch(e){}dirty=false;}
+    function doSave(){if(!canSave||noSave)return;try{localStorage.setItem(SAVE,JSON.stringify({seed:SEED,e:edits,p:[+pos.x.toFixed(2),+pos.y.toFixed(2),+pos.z.toFixed(2),+C.yaw.toFixed(3),+C.pitch.toFixed(3)],hot}));}catch(e){}dirty=false;}
     let breakCd=0,placeCd=0,stepT=0;
     function update(dt){
       dressTools();E.hud.el.classList.toggle('vb-touch',!!I.touch);
@@ -268,7 +274,13 @@ VG.register({
       /* rebuild what changed (a few per frame keeps it smooth) */
       let nfix=0;for(let i=0;i<chunks.length&&nfix<3;i++)if(chunks[i].dirty){meshChunk(i%NCX,(i/NCX)|0);nfix++;}
       if(dirty){saveT-=dt;if(saveT<=0){saveT=5;doSave();}}
-      E.status(net?'Building together. Break, build, and make something.':'Break blocks, place blocks, build anything.'+(fly?'  Flying.':''));
+      /* party: whoever holds the most of the world (the owner first) sends it to anyone who is missing blocks, such as a late joiner */
+      if(net&&net.live){
+        chkT-=dt;if(chkT<=0){chkT=1;let best=true,low=false;const mine=[owner?1:0,nEd];
+          for(const c of E.remotes){const x=c.netX;if(!Array.isArray(x))continue;if(x[0]>mine[0]||(x[0]===mine[0]&&(x[1]>mine[1]||(x[1]===mine[1]&&c.remote<net.myPeer))))best=false;if(x[1]<nEd)low=true;}
+          lowT=best&&low?lowT+1:0;if(lowT>=2&&!queue&&E.time-lastFull>6){queue=Object.keys(edits);qi=0;lastFull=E.time;lowT=0;}}
+        if(queue){qT-=dt;if(qT<=0){qT=0.12;const out=[];for(let k=0;k<120&&qi<queue.length;k++,qi++){out.push(+queue[qi],edits[queue[qi]]);}if(out.length)net.send({bs:out});if(qi>=queue.length)queue=null;}}}
+      E.status(net?(owner?'Building together in your world. It saves on this device.':'Building together. Break, build, and make something.'):'Break blocks, place blocks, build anything.'+(fly?'  Flying.':''));
       E.score([{label:'In hand',value:B[held()].name,color:B[held()].col,me:true}]);
     }
     function camera(){look();const bob=fly||!onGround?0:Math.sin(E.time*9)*Math.min(1,Math.hypot(vel.x,vel.z)/4.6)*0.035;
@@ -278,8 +290,11 @@ VG.register({
     return {
       update,camera,
       onRemote(c){c.group.scale.setScalar(0.72);},
-      onNet(d){if(!d||!Array.isArray(d.b))return;const i=d.b[0]|0,id=d.b[1]|0;if(i<0||i>=blocks.length||(id!==AIR&&id!==WATER&&PLACE.indexOf(id)<0))return;
-        const x=i%WX,z=Math.floor(i/WX)%WZ,y=Math.floor(i/(WX*WZ));if(B[blocks[i]]&&B[blocks[i]].fixed)return;setBlock(x,y,z,id,true);},
+      netMine(){return [owner?1:0,nEd];},
+      onNet(d){if(!d)return;const one=(i,id)=>{i|=0;id|=0;if(i<0||i>=blocks.length||(id!==AIR&&id!==WATER&&PLACE.indexOf(id)<0))return;
+          const x=i%WX,z=Math.floor(i/WX)%WZ,y=Math.floor(i/(WX*WZ));if(B[blocks[i]]&&B[blocks[i]].fixed)return;if(!setBlock(x,y,z,id,true)&&!(i in edits)){nEd++;edits[i]=id;}};
+        if(Array.isArray(d.b))one(d.b[0],d.b[1]);
+        if(Array.isArray(d.bs))for(let k=0;k+1<d.bs.length&&k<400;k+=2)one(d.bs[k],d.bs[k+1]);},
       canDamage(){return false;},
       dispose(){doSave();window.removeEventListener('keydown',onKey);for(const ch of chunks){for(const k of ['o','t'])if(ch[k]){E.scene.remove(ch[k]);ch[k].geometry.dispose();}}tex.dispose();matO.dispose();matT.dispose();E.hud.el.classList.remove('vb','vb-touch');},
       _t:{get,setBlock,pos,cast:()=>aim,held,blocks,idx,WX,WZ,WY}
