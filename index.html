@@ -341,7 +341,8 @@ function friends(){
   mem.forEach(function(p){var u=p.presence&&p.presence.u||{},me=p.peer===N.myPeer,t=me?N.pt:(p.presence.pt||{});
     h+='<li><i style="background:'+hex(typeof u.c==='number'?u.c:0x3d8bff)+'"></i><span>'+esc(N.nameOf(p).n)+(me?' (you)':'')+'</span><em>'+(!N.pub&&host&&host.peer===p.peer?'Party leader':'')+((p.presence&&p.presence.s)?' &middot; in a round':'')+'</em></li>';});
   h+='</ul>';
-  if(mem.length<2)h+='<p class="note">'+(N.pub?'Nobody else is here yet. You can start now and others can jump in when they arrive.':'Waiting for friends to join. You can start now and they can jump in when they arrive.')+'</p>';
+  if(!N.pub&&!lead&&mem.length<2&&Date.now()-N.joinedAt>4500)h+='<div class="card" role="alert"><h3>Nobody is in a party with the code '+esc(N.code)+'</h3><p class="note">Check the four letters with your friend. Your friend must also be on vilasiarcade.com with the party still open.</p></div>';
+  else if(mem.length<2)h+='<p class="note">'+(N.pub?'Nobody else is here yet. You can start now and others can jump in when they arrive.':'Waiting for friends to join. You can start now and they can jump in when they arrive.')+'</p>';
   if(lead){
     h+='<h2>Pick a game</h2><div class="pickrow">';VG.games.forEach(function(g){h+='<button type="button" data-pick="'+g.id+'"'+(g.id===picked?' class="on" aria-pressed="true"':' aria-pressed="false"')+'>'+esc(g.name)+'</button>';});
     h+='</div><button class="play" type="button" id="startBtn"'+(picked?'':' disabled')+'>'+(picked?'START '+esc(VG.byId[picked].name.toUpperCase()):'PICK A GAME')+'</button>';

@@ -87,7 +87,7 @@ N.parties=function(){const by={};for(const p of N.peers()){const t=ptOf(p);if(!t
 function pushPt(){if(N.tr)N.tr.set({pt:N.pt});}
 N.create=function(){N.pub=false;N.full=false;let c='';for(let i=0;i<4;i++)c+=LETTERS[(Math.random()*LETTERS.length)|0];N.code=c;N.pt={code:c,h:1,g:null,go:null,live:0};N.played=0;pushPt();N.changed();};
 N.PUBLIC='OPEN';N.MAXPUB=8;
-N.join=function(code){code=String(code||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);if(code.length<4)return false;N.code=code;N.pub=code===N.PUBLIC;N.joinedAt=Date.now();N.full=false;N.pt={code,h:0,g:null,go:null,live:0};N.played=0;pushPt();N.changed();return true;};
+N.join=function(code){code=String(code||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);if(code.length<4)return false;N.code=code;N.pub=code===N.PUBLIC;N.joinedAt=Date.now();N.full=false;N.pt={code,h:0,g:null,go:null,live:0};N.played=0;pushPt();N.changed();setTimeout(()=>{if(N.code===code)N.changed();},5000);return true;};
 N.joinPublic=function(){return N.join(N.PUBLIC);};
 N.leave=function(){N.pub=false;N.code=null;N.pt=null;N.go=null;if(N.tr)N.tr.set({pt:null,s:null,ev:null,b:null});N.changed();};
 N.pick=function(id){if(!N.pt||!N.isHost())return;N.pt.g=id;pushPt();N.changed();};
