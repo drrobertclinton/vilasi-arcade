@@ -455,9 +455,9 @@ class Engine{
   step(dt){
     this.time+=dt;if(this.world._new&&this.world._new.length){const n=this.world.fixSeams();this.seams=(this.seams||0)+n;}if(this.net)this.net.pre(dt);
     for(let i=this.timers.length-1;i>=0;i--){const t=this.timers[i];if(t.dead){this.timers.splice(i,1);continue;}if(this.time>=t.at){if(t.every)t.at+=t.every;else this.timers.splice(i,1);try{t.fn();}catch(e){console.error(e);}}}
-    if(!this.over){if(window.VG_AUTOPILOT&&this.game.autopilot){try{this.game.autopilot(dt);}catch(e){console.error(e);}}else this._player(dt);if(this.game.update){try{this.game.update(dt);}catch(e){console.error(e);}}}
+    if(!this.over){if(window.VG_AUTOPILOT&&this.game.autopilot){try{this.game.autopilot(dt);}catch(e){console.error(e);}}else if(!this.def.custom)this._player(dt);if(this.game.update){try{this.game.update(dt);}catch(e){console.error(e);}}}
     const sub=dt>0.02?2:1,h=dt/sub;
-    for(const c of this.chars){if(!c.alive)continue;if(c.puppet){this.net.move(c,dt);continue;}if(c.brain&&!this.over&&!c.brain.manual&&(c.isBot||window.VG_AUTOPILOT))c.brain.step(dt);
+    for(const c of this.chars){if(!c.alive||c.noPhys)continue;if(c.puppet){this.net.move(c,dt);continue;}if(c.brain&&!this.over&&!c.brain.manual&&(c.isBot||window.VG_AUTOPILOT))c.brain.step(dt);
       if(this.over){c.vel.x*=0.85;c.vel.z*=0.85;}
       for(let s=0;s<sub;s++)this.world.move(c,h);
       if(c.pos.y<this.world.killY)this.kill(c,null);}
@@ -465,7 +465,7 @@ class Engine{
     for(const c of this.targets())if(c.alive)c.animate(dt);
     this._shots(dt);this._pickups(dt);this.fx.update(dt);
     for(let i=this.beams.length-1;i>=0;i--){const b=this.beams[i];b.t-=dt;b.m.material.opacity=Math.max(0,b.t/0.18);if(b.t<=0){this.scene.remove(b.m);b.m.material.dispose();this.beams.splice(i,1);}}
-    this._camera(dt);this.hud.frame(dt);this.input.fire=false;this.input.jump=false;if(this.net)this.net.post(dt);
+    this._camera(dt);this.hud.frame(dt);this.input.fire=false;this.input.jump=false;this.input.alt=false;if(this.net)this.net.post(dt);
   }
   _player(dt){
     const p=this.player,I=this.input,K=I.keys;if(!p.alive)return;
@@ -504,6 +504,7 @@ class Engine{
       if(dx*dx+dz*dz<3.2&&Math.abs(dy)<2.6){if(p.o.onTake&&p.o.onTake(c)===false)continue;this.fx.burst(p.m.position,p.o.color||0xffc93c,12,7,0.25);if(c===this.player)this.sfx('pickup');
         if(p.o.respawn){p.on=false;p.m.visible=false;this.after(p.o.respawn,()=>{p.on=true;p.m.visible=true;});}else this.removePickup(p);break;}}}}
   _camera(dt){
+    if(this.game&&this.game.camera){this.game.camera(dt);if(this.sky){this.sky.position.copy(this.camera.position);this.sky.material.uniforms.tm.value=this.time;}return;}
     const C=this.cam,p=this.player;C.pitch=clamp(C.pitch,-0.9,1.35);
     const tx=p.pos.x,ty=p.pos.y+2.5,tz=p.pos.z;C.look.x=lerp(C.look.x,tx,Math.min(1,18*dt));C.look.y=lerp(C.look.y,ty,Math.min(1,10*dt));C.look.z=lerp(C.look.z,tz,Math.min(1,18*dt));
     const cp=Math.cos(C.pitch),dir=V(Math.sin(C.yaw)*cp,Math.sin(C.pitch),Math.cos(C.yaw)*cp),rx=Math.cos(C.yaw),rz=-Math.sin(C.yaw);
@@ -528,7 +529,7 @@ class Engine{
     on(window,'blur',()=>{I.keys.clear();I.fireHeld=false;});
     on(cv,'mousedown',e=>{SFX.init();if(this.over||this.paused)return;
       if(!I.locked&&!I.noLock){try{const pr=cv.requestPointerLock&&cv.requestPointerLock();if(pr&&pr.catch)pr.catch(()=>{I.noLock=true;});}catch(err){I.noLock=true;}}
-      I.drag={x:e.clientX,y:e.clientY,moved:0,t:performance.now()};if(I.locked&&e.button===0){I.fire=true;I.fireHeld=true;}});
+      I.drag={x:e.clientX,y:e.clientY,moved:0,t:performance.now()};if(I.locked&&e.button===0){I.fire=true;I.fireHeld=true;}if(e.button===2)I.alt=true;});
     on(window,'mouseup',e=>{I.fireHeld=false;if(I.drag&&!I.locked&&e.button===0&&I.drag.moved<6&&performance.now()-I.drag.t<300)I.fire=true;I.drag=null;});
     on(window,'mousemove',e=>{if(I.locked){this.cam.yaw-=e.movementX*0.0026;this.cam.pitch+=e.movementY*0.0026;}
       else if(I.drag){const dx=e.clientX-I.drag.x,dy=e.clientY-I.drag.y;I.drag.x=e.clientX;I.drag.y=e.clientY;I.drag.moved+=Math.abs(dx)+Math.abs(dy);this.cam.yaw-=dx*0.006;this.cam.pitch+=dy*0.006;}});

@@ -205,7 +205,7 @@ h2{font:700 19px/1.2 var(--body);margin:26px 0 12px}
       <button type="button" data-go="ideas-box"><span class="dot" style="background:#22b96b"></span>Ideas box</button>
       <hr>
       <button type="button" id="sound"><span class="dot" style="background:#a56bff"></span><span id="soundTxt">Sound: on</span></button>
-      <small id="railNote">Nine games. Play on your own against computer players, or start a party and play with friends.</small>
+      <small id="railNote">Eleven games. Play on your own against computer players, or start a party and play with friends.</small>
     </aside>
     <main class="view" id="view"></main>
   </div>
@@ -214,17 +214,18 @@ h2{font:700 19px/1.2 var(--body);margin:26px 0 12px}
 <div id="count" role="status" aria-live="polite"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="engine.js?v=20261122d"></script>
-<script src="net.js?v=20261122d"></script>
-<script src="games/wreck-island.js?v=20261122d"></script>
-<script src="games/hull-breach.js?v=20261122d"></script>
-<script src="games/nine-rooms.js?v=20261122d"></script>
-<script src="games/rubble-royale.js?v=20261122d"></script>
-<script src="games/skyline-sprint.js?v=20261122d"></script>
-<script src="games/steal-a-creator.js?v=20261122d"></script>
-<script src="games/grow-a-kaiju.js?v=20261122d"></script>
-<script src="games/last-elevator.js?v=20261122d"></script>
-<script src="games/mountain-nights.js?v=20261122d"></script>
+<script src="engine.js?v=20261122e"></script>
+<script src="net.js?v=20261122e"></script>
+<script src="games/vilasi-blocks.js?v=20261122e"></script>
+<script src="games/wreck-island.js?v=20261122e"></script>
+<script src="games/hull-breach.js?v=20261122e"></script>
+<script src="games/nine-rooms.js?v=20261122e"></script>
+<script src="games/rubble-royale.js?v=20261122e"></script>
+<script src="games/skyline-sprint.js?v=20261122e"></script>
+<script src="games/steal-a-creator.js?v=20261122e"></script>
+<script src="games/grow-a-kaiju.js?v=20261122e"></script>
+<script src="games/last-elevator.js?v=20261122e"></script>
+<script src="games/mountain-nights.js?v=20261122e"></script>
 <script>
 (function(){
 'use strict';
@@ -248,17 +249,21 @@ function thumbStyle(def){return 'background-image:url(thumbs/'+def.id+'.jpg),lin
 function home(filter){
   var list=VG.games.filter(function(g){return !filter||(g.name+' '+g.tagline).toLowerCase().indexOf(filter)>=0;});
   var h='<h1>Games</h1><p class="sub">Pick a game and play. Earn up to three stars on each.</p><div class="grid">';
-  list.forEach(function(g){var p=prog(g.id),max=3,st=starsOf(g.id);
+  var dashTile='<a class="tile" href="dash/" style="text-decoration:none"><span class="thumb" style="background-image:url(thumbs/vilasi-dash.jpg)"></span><span class="t"><strong>Vilasi Dash</strong><span>Jump to the beat with Blip. Build your own levels.</span></span></a>';
+  var dashOn=!filter||'vilasi dash jump to the beat with blip build your own levels'.indexOf(filter)>=0;
+  list.forEach(function(g,gi){var p=prog(g.id),max=3,st=starsOf(g.id);
+    if(gi===1&&dashOn){h+=dashTile;dashOn=false;}
     h+='<button class="tile" type="button" data-game="'+g.id+'"><span class="thumb" style="'+thumbStyle(g)+'"></span><span class="t"><strong>'+esc(g.name)+'</strong><span>'+esc(g.tagline)+'</span>'+
-      '<span class="meter"><i style="width:'+(st/max*100)+'%"></i></span><span class="lvl"><span>'+st+' / '+max+' stars</span></span></span></button>';});
-  h+='</div>';if(!list.length)h+='<p class="sub">No game matches that search.</p>';
+      (g.custom?'':'<span class="meter"><i style="width:'+(st/max*100)+'%"></i></span><span class="lvl"><span>'+st+' / '+max+' stars</span></span>')+'</span></button>';});
+  if(dashOn)h+=dashTile;
+  h+='</div>';if(!list.length&&!(!filter||'vilasi dash jump to the beat with blip build your own levels'.indexOf(filter)>=0))h+='<p class="sub">No game matches that search.</p>';
   view.innerHTML=h;
 }
 function gamePage(id){
   var g=VG.byId[id];if(!g){home();return;}var p=prog(id);
   var h='<button class="back" type="button" data-go="">&larr; All games</button><div class="gp"><div><span class="thumb" style="'+thumbStyle(g)+'"></span></div><aside><div><h1>'+esc(g.name)+'</h1><p class="sub" style="margin:0">'+esc(g.tagline)+'</p></div>'+
     '<button class="play" type="button" id="playBtn">PLAY</button><button class="send" type="button" id="withBtn">Play with friends</button>';
-  h+='<p class="note">'+starsOf(id)+' of 3 stars earned. Wins: '+p.wins+'.</p></aside></div>'+
+  h+=(g.custom?'<p class="note">Your world is saved on this device.</p>':'<p class="note">'+starsOf(id)+' of 3 stars earned. Wins: '+p.wins+'.</p>')+'</aside></div>'+
     '<section class="how"><h2>How to play</h2><ul>'+(g.howTo||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+
     '<p class="note">Move with <span class="kbd">W</span> <span class="kbd">A</span> <span class="kbd">S</span> <span class="kbd">D</span>, jump with <span class="kbd">Space</span>, aim with the mouse and click to use your tool. Number keys switch tools. On a phone or tablet, drag the left side to move and the right side to look.</p></section>';
   view.innerHTML=h;
@@ -268,7 +273,7 @@ function gamePage(id){
 function moreGames(){
   view.innerHTML='<h1>More games</h1><p class="sub">Other games from the same family. Each opens in its own page.</p><div class="cards">'+
     '<div class="card"><h3>Bolt Squad</h3><p class="note">A social-deduction party game to play with friends.</p><a class="go" href="https://boltsquadgames.com" target="_blank" rel="noopener">Open Bolt Squad</a><p class="note">boltsquadgames.com</p></div>'+
-    '<div class="card"><h3>Vilasi Dash</h3><p class="note">Jump to the beat with Blip. Build and share your own levels.</p><p class="note">Coming to this site soon.</p></div></div>'+
+    '<div class="card"><h3>Vilasi Dash</h3><p class="note">Jump to the beat with Blip. Build your own levels.</p><a class="go" href="dash/">Play Vilasi Dash</a></div></div>'+
     '<h2 style="margin-top:28px">On Roblox</h2><p class="sub">Our Roblox games. They open in the Roblox app or website. Right now only invited testers can join.</p><div class="cards">'+
     '<div class="card"><h3>Catastrophe Survival</h3><p class="note">Survive 17 disasters across 6 maps. Last one standing wins.</p><a class="go" href="https://www.roblox.com/games/93223302508270" target="_blank" rel="noopener">Play on Roblox</a></div>'+
     '<div class="card"><h3>Rocket Wars</h3><p class="note">Team battle in space. Blow up the enemy rockets\' power cores.</p><a class="go" href="https://www.roblox.com/games/105645650381141" target="_blank" rel="noopener">Play on Roblox</a></div>'+
