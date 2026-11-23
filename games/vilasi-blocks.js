@@ -29,9 +29,9 @@ def(LAMP,'Lamp',['lamp','lamp','lamp'],0xffe58a,{bright:true});
 const COLS=[['Red',0xe0483e],['Orange',0xf08a2c],['Yellow',0xf4d03a],['Green',0x4fb85a],['Blue',0x3f7fe0],['Purple',0x9a5fd6],['White',0xf2f2f2],['Black',0x2a2c33]];
 COLS.forEach((c,i)=>def(18+i,c[0],['c'+i,'c'+i,'c'+i],c[1]));
 def(TILE,'Tile',['tile','tile','tile'],0xd8dce6);
-const EGG=40,PEGG=41;def(EGG,'Cow egg',['egg','egg','egg'],0xf4efe6,{item:true});def(PEGG,'Pig egg',['egg2','egg2','egg2'],0xf2a0b5,{item:true});
-const PLACE=[GRASS,DIRT,STONE,COBBLE,SAND,LOG,PLANK,LEAF,GLASS,BRICK,GRAVEL,SNOW,COAL,GOLD,LAMP,TILE,18,19,20,21,22,23,24,25,EGG,PEGG];
-const HOT0=[GRASS,DIRT,STONE,PLANK,LOG,BRICK,GLASS,EGG,PEGG];
+const EGG=40,PEGG=41,CEGG=42;def(CEGG,'Chicken egg',['egg3','egg3','egg3'],0xffffff,{item:true});def(EGG,'Cow egg',['egg','egg','egg'],0xf4efe6,{item:true});def(PEGG,'Pig egg',['egg2','egg2','egg2'],0xf2a0b5,{item:true});
+const PLACE=[GRASS,DIRT,STONE,COBBLE,SAND,LOG,PLANK,LEAF,GLASS,BRICK,GRAVEL,SNOW,COAL,GOLD,LAMP,TILE,18,19,20,21,22,23,24,25,EGG,PEGG,CEGG];
+const HOT0=[GRASS,DIRT,STONE,PLANK,LOG,BRICK,EGG,PEGG,CEGG];
 
 /* ---------------------------------------------------------------- textures (every pixel is made here) */
 const TS=16,AC=8,AR=5,TILES={};let atlasCanvas=null,atlasURL='';
@@ -71,6 +71,9 @@ function buildAtlas(){
   tile('egg2',t=>{for(let y=0;y<16;y++)for(let x=0;x<16;x++){const dx=(x-7.5)/5.2,dy=(y-8.5)/(y<8.5?6.8:5.6),in_=dx*dx+dy*dy<1;
       t.set(x,y,in_?t.sh(t.hx(0xf7b6c8),1.05-(dx*0.12+dy*0.1)):t.hx(0x24284a));}
     for(const q of [[5,6],[9,5],[10,9],[6,11],[8,8]]){t.set(q[0],q[1],t.hx(0xd9668c));t.set(q[0]+1,q[1],t.hx(0xd9668c));t.set(q[0],q[1]+1,t.hx(0xd9668c));}});
+  tile('egg3',t=>{for(let y=0;y<16;y++)for(let x=0;x<16;x++){const dx=(x-7.5)/5.2,dy=(y-8.5)/(y<8.5?6.8:5.6),in_=dx*dx+dy*dy<1;
+      t.set(x,y,in_?t.sh(t.hx(0xffffff),1.0-(dx*0.08+dy*0.07)):t.hx(0x24284a));}
+    for(const q of [[5,6],[9,5],[10,9],[6,11],[8,8]]){t.set(q[0],q[1],t.hx(0xf2a23a));t.set(q[0]+1,q[1],t.hx(0xf2a23a));t.set(q[0],q[1]+1,t.hx(0xe0483e));}});
   atlasURL=cv.toDataURL();
 }
 function swatch(el,id,px){const n=TILES[B[id].tiles[1]],k=px/TS;el.style.backgroundImage='url('+atlasURL+')';el.style.backgroundSize=(AC*TS*k)+'px '+(AR*TS*k)+'px';el.style.backgroundPosition=(-(n%AC)*px)+'px '+(-Math.floor(n/AC)*px)+'px';el.style.imageRendering='pixelated';}
@@ -100,7 +103,7 @@ VG.register({
     'Click or tap Break to remove a block. Right-click, press R, or tap Build to place the block you are holding.',
     'Keys 1 to 9 or the mouse wheel change the block in your hand. Press E or tap Blocks to swap in any block.',
     'Press F or tap Fly to fly. While flying, Space goes up and Shift goes down.',
-    'Hold the Cow egg or the Pig egg and use Build to hatch an animal. Break an animal to pop it away. You can have up to 12 animals.',
+    'Hold the Cow egg, Pig egg or Chicken egg and use Build to hatch an animal. Break an animal to pop it away. You can have up to 12 animals.',
     'Your world is saved on this device every few seconds, so your builds are there when you come back.',
     'With friends, everyone builds in the party leader\'s world at the same time, and it is saved on the leader\'s device.'
   ],
@@ -198,7 +201,8 @@ VG.register({
     /* ---- hotbar */
     let mySave=save;if(!canSave){try{mySave=JSON.parse(localStorage.getItem(SAVE)||'null');}catch(e){mySave=null;}}
     const hot=(mySave&&Array.isArray(mySave.hot)&&mySave.hot.length===9&&mySave.hot.every(b=>PLACE.indexOf(b)>=0))?mySave.hot.slice():HOT0.slice();
-    if(mySave&&mySave.egg!==2){if(hot.indexOf(PEGG)<0)hot[8]=PEGG;if(hot.indexOf(EGG)<0)hot[7]=EGG;} /* worlds from before the animals get both eggs in the last two slots */
+    if(mySave&&mySave.egg!==2&&mySave.egg!==3){if(hot.indexOf(PEGG)<0)hot[8]=PEGG;if(hot.indexOf(EGG)<0)hot[7]=EGG;}
+    if(mySave&&mySave.egg!==3&&hot.indexOf(CEGG)<0)hot[6]=CEGG; /* worlds from before the animals get both eggs in the last two slots */
     PLACE.forEach(id=>{VG.TOOLS['vb:'+id]={name:B[id].name,cd:0.05,use(){return false;}};});
     const setHot=()=>{const cur=P.tools.indexOf(P.tool);P.setTools(hot.map(b=>'vb:'+b));P.equip(P.tools[Math.max(0,cur)]);E.hud.tools();};
     P.setTools(hot.map(b=>'vb:'+b));
@@ -250,9 +254,10 @@ VG.register({
       blocks[i]=id;mark(x,z);mark(x-1,z);mark(x+1,z);mark(x,z-1);mark(x,z+1);
       if(!(i in edits))nEd++;edits[i]=id;if(canSave)dirty=true;if(net&&!told)net.send({b:[i,id]});return true;
     }
-    function doSave(){if(!canSave||noSave)return;try{localStorage.setItem(SAVE,JSON.stringify({seed:SEED,e:edits,p:[+pos.x.toFixed(2),+pos.y.toFixed(2),+pos.z.toFixed(2),+C.yaw.toFixed(3),+C.pitch.toFixed(3)],hot,egg:2,pg:cows.map(q=>[+q.x.toFixed(1),+q.y.toFixed(1),+q.z.toFixed(1),+q.yaw.toFixed(2),q.k])}));}catch(e){}dirty=false;}
+    function doSave(){if(!canSave||noSave)return;try{localStorage.setItem(SAVE,JSON.stringify({seed:SEED,e:edits,p:[+pos.x.toFixed(2),+pos.y.toFixed(2),+pos.z.toFixed(2),+C.yaw.toFixed(3),+C.pitch.toFixed(3)],hot,egg:3,pg:cows.map(q=>[+q.x.toFixed(1),+q.y.toFixed(1),+q.z.toFixed(1),+q.yaw.toFixed(2),q.k])}));}catch(e){}dirty=false;}
     /* ---- animals: cows and pigs (our own blocky designs). Each player's device runs the animals that player hatched; everyone else sees them move. */
-    const KIND=[{hw:0.38,hh:1.3,sp:1.3,ah:0.85,ahead:1,jump:7.4},{hw:0.3,hh:0.85,sp:1.5,ah:0.5,ahead:0.75,jump:7.4}]; /* 0 cow, 1 pig */
+    const KIND=[{hw:0.38,hh:1.3,sp:1.3,ah:0.85,ahead:1,jump:7.4},{hw:0.3,hh:0.85,sp:1.5,ah:0.5,ahead:0.75,jump:7.4},{hw:0.2,hh:0.62,sp:1.15,ah:0.35,ahead:0.6,jump:7.2}]; /* 0 cow, 1 pig, 2 chicken */
+    const kOf=v=>v===1?1:v===2?2:0;
     const cows=[],farCows=new Map();let cowN=1;
     const PM=c=>new T.MeshLambertMaterial({color:c}),pm={body:PM(0xf4efe6),dark:PM(0x5a3d2b),snout:PM(0xf0b4b4),ink:PM(0x2a2230),horn:PM(0xe6d6b0)};
     const pg={};function bx(w,h,d){const k=w+'_'+h+'_'+d;return pg[k]||(pg[k]=new T.BoxGeometry(w,h,d));}
@@ -269,7 +274,19 @@ VG.register({
       const tail=add(g,bx(0.08,0.08,0.16),pp.dark,0,0.7,-0.52);tail.rotation.x=-0.6;
       g.userData={head,legs};E.scene.add(g);return g;
     }
-    const mkMesh=k=>k===1?pigMesh():cowMesh();
+    const pc={body:PM(0xffffff),wing:PM(0xe9e9ee),beak:PM(0xf2a23a),red:PM(0xe0483e),leg:PM(0xf0b23a)};
+    function chickMesh(){
+      const g=new T.Group(),add=(par,geo,mat,x,y,z)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);par.add(m);return m;};
+      add(g,bx(0.34,0.32,0.46),pc.body,0,0.4,0);add(g,bx(0.05,0.2,0.3),pc.wing,-0.195,0.42,0);add(g,bx(0.05,0.2,0.3),pc.wing,0.195,0.42,0);
+      const tl=add(g,bx(0.2,0.2,0.1),pc.wing,0,0.56,-0.26);tl.rotation.x=-0.5;
+      const head=new T.Group();head.position.set(0,0.62,0.2);g.add(head);
+      add(head,bx(0.22,0.26,0.2),pc.body,0,0.06,0.04);add(head,bx(0.12,0.07,0.12),pc.beak,0,0.04,0.2);add(head,bx(0.07,0.1,0.05),pc.red,0,-0.05,0.17);
+      add(head,bx(0.06,0.09,0.16),pc.red,0,0.23,0.04);add(head,bx(0.04,0.05,0.02),pm.ink,-0.115,0.1,0.1).rotation.y=1.57;add(head,bx(0.04,0.05,0.02),pm.ink,0.115,0.1,0.1).rotation.y=1.57;
+      const legs=[];for(const q of [-0.09,0.09]){const l=new T.Group();l.position.set(q,0.25,0);add(l,bx(0.05,0.25,0.05),pc.leg,0,-0.125,0);add(l,bx(0.12,0.03,0.16),pc.leg,0,-0.235,0.04);g.add(l);legs.push(l);}
+      legs.push(new T.Group(),new T.Group());const a=legs[1];legs[1]=legs[2];legs[2]=a; /* the two real legs swing opposite ways */
+      g.userData={head,legs};E.scene.add(g);return g;
+    }
+    const mkMesh=k=>k===2?chickMesh():k===1?pigMesh():cowMesh();
     function cowMesh(){
       const g=new T.Group(),add=(par,geo,mat,x,y,z)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);par.add(m);return m;};
       add(g,bx(0.72,0.66,1.3),pm.body,0,0.86,0);
@@ -288,7 +305,7 @@ VG.register({
     }
     const boxHit=(x,y,z,hw,hh)=>{const x0=Math.floor(x-hw),x1=Math.floor(x+hw),y0=Math.floor(y),y1=Math.floor(y+hh-0.001),z0=Math.floor(z-hw),z1=Math.floor(z+hw);
       for(let yy=y0;yy<=y1;yy++)for(let zz=z0;zz<=z1;zz++)for(let xx=x0;xx<=x1;xx++)if(solid(xx,yy,zz))return true;return false;};
-    function hatch(x,y,z,yaw,k){k=k===1?1:0;
+    function hatch(x,y,z,yaw,k){k=kOf(k);
       while(cows.length>=12){const o=cows.shift();E.scene.remove(o.m);}
       const q={id:cowN++,x,y,z,vy:0,yaw:yaw==null?Math.random()*6.283:yaw,want:0,walk:0,idle:1+Math.random()*2,ph:0,hop:0,k,m:mkMesh(k)};q.want=q.yaw;cows.push(q);if(canSave)dirty=true;return q;
     }
@@ -308,7 +325,7 @@ VG.register({
           else{q.x=nx;q.z=nz;}
           q.ph+=dt*9;}
         if(q.hop>0){q.hop=0;if(ground)q.vy=6;}
-        q.vy-=24*dt;if(q.vy<-30)q.vy=-30;let ny=q.y+q.vy*dt;
+        q.vy-=24*dt;if(q.vy<-30)q.vy=-30;if(q.k===2&&q.vy<-3.2)q.vy=-3.2; /* chickens flutter down */let ny=q.y+q.vy*dt;
         if(boxHit(q.x,ny,q.z,HWp,HHp)){if(q.vy<0)ny=Math.floor(q.y+0.0001)<=q.y&&boxHit(q.x,Math.floor(q.y),q.z,HWp,0.01)?q.y:Math.floor(ny)+1;else ny=q.y;q.vy=0;}
         q.y=ny;if(q.y<-10){q.y=topY(q.x,q.z)+0.1;q.vy=0;}
         if(get(Math.floor(q.x),Math.floor(q.y+0.3),Math.floor(q.z))===WATER)q.vy=Math.max(q.vy,2.2);
@@ -318,7 +335,7 @@ VG.register({
       const seen={};
       for(const c of E.remotes){const x=c.netX;if(!Array.isArray(x)||!Array.isArray(x[2]))continue;
         for(const a of x[2]){if(!Array.isArray(a))continue;const k=c.remote+':'+a[0];seen[k]=1;let f=farCows.get(k);
-          if(!f){f={k:a[5]===1?1:0,m:mkMesh(a[5]===1?1:0),x:+a[1],y:+a[2],z:+a[3],yaw:+a[4]||0,ph:0,peer:c.remote,id:a[0]};farCows.set(k,f);}
+          if(!f){f={k:kOf(a[5]),m:mkMesh(kOf(a[5])),x:+a[1],y:+a[2],z:+a[3],yaw:+a[4]||0,ph:0,peer:c.remote,id:a[0]};farCows.set(k,f);}
           const ox=f.x,oz=f.z,kk=Math.min(1,10*dt);f.x+=(+a[1]-f.x)*kk;f.y+=(+a[2]-f.y)*kk;f.z+=(+a[3]-f.z)*kk;
           let d=(+a[4]||0)-f.yaw;d=((d+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;f.yaw+=d*kk;
           const mv=Math.hypot(f.x-ox,f.z-oz)>0.4*dt;if(mv)f.ph+=dt*9;pose(f.m,f.x,f.y,f.z,f.yaw,f.ph,mv);}}
@@ -356,9 +373,9 @@ VG.register({
       else if((I.fire||I.fireHeld)&&breakCd<=0&&aim&&!cow){const b=get(aim.x,aim.y,aim.z);
         if(b!==AIR&&!B[b].fixed&&setBlock(aim.x,aim.y,aim.z,(aim.y<=SEA&&[[1,0],[-1,0],[0,1],[0,-1]].some(d=>get(aim.x+d[0],aim.y,aim.z+d[1])===WATER))?WATER:AIR)){
           E.fx.burst(V(aim.x+0.5,aim.y+0.5,aim.z+0.5),B[b].col,9,5,0.16,{life:0.7});E.sfx('hit');breakCd=0.22;}}
-      if((I.alt||wantPlace)&&placeCd<=0&&(held()===EGG||held()===PEGG)){
+      if((I.alt||wantPlace)&&placeCd<=0&&(held()===EGG||held()===PEGG||held()===CEGG)){
         if(cow){cow.hop=1;if(!cow.m||cows.indexOf(cow)<0){}E.fx.burst(V(cow.x,cow.y+1,cow.z),[0xff6fa5,0xffffff],6,3,0.14,{life:0.6});placeCd=0.3;}
-        else if(aim&&!solid(aim.px,aim.py,aim.pz)){hatch(aim.px+0.5,aim.py+0.02,aim.pz+0.5,C.yaw,held()===PEGG?1:0);E.fx.burst(V(aim.px+0.5,aim.py+0.5,aim.pz+0.5),[0xf4efe6,0x5a3d2b],14,5,0.16,{life:0.7});E.sfx('pickup');placeCd=0.35;}}
+        else if(aim&&!solid(aim.px,aim.py,aim.pz)){hatch(aim.px+0.5,aim.py+0.02,aim.pz+0.5,C.yaw,held()===CEGG?2:held()===PEGG?1:0);E.fx.burst(V(aim.px+0.5,aim.py+0.5,aim.pz+0.5),[0xf4efe6,0x5a3d2b],14,5,0.16,{life:0.7});E.sfx('pickup');placeCd=0.35;}}
       else if((I.alt||wantPlace)&&placeCd<=0&&aim){const x=aim.px,yy=aim.py,z=aim.pz,cur=get(x,yy,z);
         if((cur===AIR||cur===WATER)&&yy>=1&&yy<WY){
           const blocked=q=>Math.abs(q.x-(x+0.5))<0.5+HW&&Math.abs(q.z-(z+0.5))<0.5+HW&&q.y<yy+1&&q.y+HH>yy;
@@ -384,7 +401,7 @@ VG.register({
       update,camera,
       onRemote(c){c.group.scale.setScalar(0.72);},
       netMine(){return [owner?1:0,nEd,cows.map(q=>[q.id,+q.x.toFixed(1),+q.y.toFixed(1),+q.z.toFixed(1),+q.yaw.toFixed(1),q.k])];},
-      onNet(d){if(!d)return;const one=(i,id)=>{i|=0;id|=0;if(i<0||i>=blocks.length||(id!==AIR&&id!==WATER&&(PLACE.indexOf(id)<0||id===EGG||id===PEGG)))return;
+      onNet(d){if(!d)return;const one=(i,id)=>{i|=0;id|=0;if(i<0||i>=blocks.length||(id!==AIR&&id!==WATER&&(PLACE.indexOf(id)<0||id>=EGG)))return;
           const x=i%WX,z=Math.floor(i/WX)%WZ,y=Math.floor(i/(WX*WZ));if(B[blocks[i]]&&B[blocks[i]].fixed)return;if(!setBlock(x,y,z,id,true)&&!(i in edits)){nEd++;edits[i]=id;}};
         if(Array.isArray(d.pop)&&d.pop[0]===(net&&net.myPeer)){const q=cows.find(o=>o.id===d.pop[1]);if(q)popCow(q);}
         if(Array.isArray(d.b))one(d.b[0],d.b[1]);
