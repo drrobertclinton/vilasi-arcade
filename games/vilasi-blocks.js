@@ -252,7 +252,31 @@ VG.register({
     function setBlock(x,y,z,id,told){
       if(x<0||z<0||x>=WX||z>=WZ||y<1||y>=WY)return false;const i=idx(x,y,z);if(blocks[i]===id)return false;
       blocks[i]=id;mark(x,z);mark(x-1,z);mark(x+1,z);mark(x,z-1);mark(x,z+1);
-      if(!(i in edits))nEd++;edits[i]=id;if(canSave)dirty=true;if(net&&!told)net.send({b:[i,id]});return true;
+      if(!(i in edits))nEd++;edits[i]=id;if(canSave)dirty=true;if(net&&!told)net.send({b:[i,id]});
+      if(!told)toCheck.push(x,y,z,x,y+1,z);return true;
+    }
+    /* ---- sand and gravel fall when nothing holds them up. Whoever changed the world runs the fall; friends see it drop too. */
+    const FALLS=b=>b===SAND||b===GRAVEL,toCheck=[],fallers=[],fgeo={};
+    const matF=new T.MeshBasicMaterial({map:tex,vertexColors:true});
+    function fallGeo(b){if(fgeo[b])return fgeo[b];const g=new T.BoxGeometry(1,1,1),uv=g.attributes.uv,sh=[0.8,0.8,1,0.55,0.68,0.68],col=[];
+      const tn=TILES[B[b].tiles[1]],tu=(tn%AC)/AC,tv=1-(Math.floor(tn/AC)+1)/AR;
+      for(let i=0;i<uv.count;i++){uv.setXY(i,tu+eu+uv.getX(i)*(1/AC-2*eu),tv+ev+uv.getY(i)*(1/AR-2*ev));const v=sh[(i/4)|0];col.push(v,v,v);}
+      g.setAttribute('color',new T.Float32BufferAttribute(col,3));return fgeo[b]=g;}
+    function addFaller(x,y,z,b,show){const m=new T.Mesh(fallGeo(b),matF);m.position.set(x+0.5,y+0.5,z+0.5);E.scene.add(m);fallers.push({x,y,z,b,vy:0,m,show});}
+    function checkFall(x,y,z){const b=get(x,y,z);if(!FALLS(b)||y<2||solid(x,y-1,z))return;
+      const wet=y<=SEA&&[[1,0],[-1,0],[0,1],[0,-1],[0,0]].some(d=>get(x+d[0],y+(d[0]||d[1]?0:1),z+d[1])===WATER);
+      setBlock(x,y,z,wet?WATER:AIR);addFaller(x,y,z,b,false);if(net)net.send({fa:[x,y,z,b]});}
+    function landFaller(f,k){E.scene.remove(f.m);if(f.show)return;
+      let y=k;while(y<WY&&solid(f.x,y,f.z))y++;if(y>=WY)return;setBlock(f.x,y,f.z,f.b);
+      if(hits(pos.x,pos.y,pos.z)&&!hits(pos.x,y+1,pos.z))pos.y=y+1;}
+    function fallUpdate(dt){
+      for(let n=0;n<240&&toCheck.length;n++){const z=toCheck.pop(),y=toCheck.pop(),x=toCheck.pop();checkFall(x,y,z);}
+      fallers.sort((p,q)=>p.y-q.y); /* lowest first, so a stack lands block on block */
+      for(let i=0;i<fallers.length;i++){const f=fallers[i],inW=get(f.x,Math.floor(f.y+0.5),f.z)===WATER;
+        f.vy-=(inW?9:27)*dt;if(f.vy<(inW?-5:-30))f.vy=inW?-5:-30;const next=f.y+f.vy*dt;let land=-1;
+        for(let k=Math.floor(f.y);k>next-1&&land<0;k--){if(k<=next)break;if(k-1<1||solid(f.x,k-1,f.z))land=k;}
+        if(land>=0||next<1){fallers.splice(i,1);i--;landFaller(f,Math.max(1,land));continue;}
+        f.y=next;f.m.position.y=f.y+0.5;}
     }
     function doSave(){if(!canSave||noSave)return;try{localStorage.setItem(SAVE,JSON.stringify({seed:SEED,e:edits,p:[+pos.x.toFixed(2),+pos.y.toFixed(2),+pos.z.toFixed(2),+C.yaw.toFixed(3),+C.pitch.toFixed(3)],hot,egg:3,pg:cows.map(q=>[+q.x.toFixed(1),+q.y.toFixed(1),+q.z.toFixed(1),+q.yaw.toFixed(2),q.k])}));}catch(e){}dirty=false;}
     /* ---- animals: cows and pigs (our own blocky designs). Each player's device runs the animals that player hatched; everyone else sees them move. */
@@ -360,11 +384,14 @@ VG.register({
       if(fly){vel.y+=(((up?1:0)-(down?1:0))*9-vel.y)*Math.min(1,12*dt);}
       else if(inWater){vel.y+=(-3-vel.y)*Math.min(1,3*dt);if(up)vel.y=3.4;}
       else{vel.y-=27*dt;if(vel.y<-40)vel.y=-40;if(up&&onGround){vel.y=8.6;E.sfx('jump');}}
-      moveAxis('x',vel.x*dt)&&(vel.x=0);moveAxis('z',vel.z*dt)&&(vel.z=0);
+      const bxw=moveAxis('x',vel.x*dt),bzw=moveAxis('z',vel.z*dt);if(bxw)vel.x=0;if(bzw)vel.z=0;
+      /* swimming into the shore lifts you up onto it, no flying needed */
+      const wet=inWater||get(fx,Math.floor(pos.y-0.2),fz)===WATER;
+      if(wet&&!fly&&(bxw||bzw)&&(dx||dz)){vel.y=Math.max(vel.y,3.4);
+        for(const L of [0.55,1.1,1.65])if(!hits(pos.x+dx*0.4,pos.y+L,pos.z+dz*0.4)&&!hits(pos.x,pos.y+L,pos.z)){vel.y=Math.max(vel.y,Math.sqrt(54*(L+0.35)));break;}}
       const vy=vel.y,hitY=moveAxis('y',vel.y*dt);onGround=hitY&&vy<0;if(hitY)vel.y=0;
       pos.x=clamp(pos.x,0.4,WX-0.4);pos.z=clamp(pos.z,0.4,WZ-0.4);if(pos.y<-12||pos.y>WY+60)spawnSpot();
-      if(onGround&&(dx||dz)&&!fly){stepT-=dt;if(stepT<=0){stepT=0.34;E.sfx('tick');}}
-      P.pos.set(pos.x,pos.y,pos.z);P.yaw=C.yaw+Math.PI;P.onGround=onGround;P.vel.set(0,0,0);
+            P.pos.set(pos.x,pos.y,pos.z);P.yaw=C.yaw+Math.PI;P.onGround=onGround;P.vel.set(0,0,0);
       /* aim, break, place */
       look();aim=cast();hl.visible=!!aim;if(aim)hl.position.set(aim.x+0.5,aim.y+0.5,aim.z+0.5);
       breakCd-=dt;placeCd-=dt;
@@ -372,7 +399,7 @@ VG.register({
       if(I.fire&&cow&&breakCd<=0){breakCd=0.3;if(cow.m&&cows.indexOf(cow)>=0)popCow(cow);else if(net)net.send({pop:[cow.peer,cow.id]});}
       else if((I.fire||I.fireHeld)&&breakCd<=0&&aim&&!cow){const b=get(aim.x,aim.y,aim.z);
         if(b!==AIR&&!B[b].fixed&&setBlock(aim.x,aim.y,aim.z,(aim.y<=SEA&&[[1,0],[-1,0],[0,1],[0,-1]].some(d=>get(aim.x+d[0],aim.y,aim.z+d[1])===WATER))?WATER:AIR)){
-          E.fx.burst(V(aim.x+0.5,aim.y+0.5,aim.z+0.5),B[b].col,9,5,0.16,{life:0.7});E.sfx('hit');breakCd=0.22;}}
+          E.fx.burst(V(aim.x+0.5,aim.y+0.5,aim.z+0.5),B[b].col,9,5,0.16,{life:0.7});breakCd=0.22;}}
       if((I.alt||wantPlace)&&placeCd<=0&&(held()===EGG||held()===PEGG||held()===CEGG)){
         if(cow){cow.hop=1;if(!cow.m||cows.indexOf(cow)<0){}E.fx.burst(V(cow.x,cow.y+1,cow.z),[0xff6fa5,0xffffff],6,3,0.14,{life:0.6});placeCd=0.3;}
         else if(aim&&!solid(aim.px,aim.py,aim.pz)){hatch(aim.px+0.5,aim.py+0.02,aim.pz+0.5,C.yaw,held()===CEGG?2:held()===PEGG?1:0);E.fx.burst(V(aim.px+0.5,aim.py+0.5,aim.pz+0.5),[0xf4efe6,0x5a3d2b],14,5,0.16,{life:0.7});E.sfx('pickup');placeCd=0.35;}}
@@ -380,7 +407,7 @@ VG.register({
         if((cur===AIR||cur===WATER)&&yy>=1&&yy<WY){
           const blocked=q=>Math.abs(q.x-(x+0.5))<0.5+HW&&Math.abs(q.z-(z+0.5))<0.5+HW&&q.y<yy+1&&q.y+HH>yy;
           if(!blocked(pos)&&!E.remotes.some(c=>c.alive&&blocked(c.pos))&&setBlock(x,yy,z,held())){E.sfx('build');placeCd=0.18;}}}
-      wantPlace=false;cowsUpdate(dt);
+      wantPlace=false;cowsUpdate(dt);fallUpdate(dt);
       /* rebuild what changed (a few per frame keeps it smooth) */
       let nfix=0;for(let i=0;i<chunks.length&&nfix<3;i++)if(chunks[i].dirty){meshChunk(i%NCX,(i/NCX)|0);nfix++;}
       if(dirty){saveT-=dt;if(saveT<=0){saveT=5;doSave();}}
@@ -405,10 +432,11 @@ VG.register({
           const x=i%WX,z=Math.floor(i/WX)%WZ,y=Math.floor(i/(WX*WZ));if(B[blocks[i]]&&B[blocks[i]].fixed)return;if(!setBlock(x,y,z,id,true)&&!(i in edits)){nEd++;edits[i]=id;}};
         if(Array.isArray(d.pop)&&d.pop[0]===(net&&net.myPeer)){const q=cows.find(o=>o.id===d.pop[1]);if(q)popCow(q);}
         if(Array.isArray(d.b))one(d.b[0],d.b[1]);
+        if(Array.isArray(d.fa)&&d.fa.length===4){const [x,y,z,b]=d.fa.map(v=>v|0);if(FALLS(b)&&x>=0&&z>=0&&x<WX&&z<WZ&&y>0&&y<WY&&fallers.length<200)addFaller(x,y,z,b,true);}
         if(Array.isArray(d.bs))for(let k=0;k+1<d.bs.length&&k<400;k+=2)one(d.bs[k],d.bs[k+1]);},
       canDamage(){return false;},
-      dispose(){doSave();window.removeEventListener('keydown',onKey);for(const ch of chunks){for(const k of ['o','t'])if(ch[k]){E.scene.remove(ch[k]);ch[k].geometry.dispose();}}tex.dispose();matO.dispose();matT.dispose();E.hud.el.classList.remove('vb','vb-touch');try{VG.stage.style.touchAction='';}catch(e){}},
-      _t:{get,setBlock,pos,cast:()=>aim,held,blocks,idx,WX,WZ,WY,cows,farCows,hatch}
+      dispose(){for(const f of fallers.splice(0)){let k=Math.floor(f.y);while(k>1&&!solid(f.x,k-1,f.z))k--;landFaller(f,k);}doSave();window.removeEventListener('keydown',onKey);for(const ch of chunks){for(const k of ['o','t'])if(ch[k]){E.scene.remove(ch[k]);ch[k].geometry.dispose();}}tex.dispose();matF.dispose();for(const k in fgeo)fgeo[k].dispose();matO.dispose();matT.dispose();E.hud.el.classList.remove('vb','vb-touch');try{VG.stage.style.touchAction='';}catch(e){}},
+      _t:{fallers,toCheck,get,setBlock,pos,cast:()=>aim,held,blocks,idx,WX,WZ,WY,cows,farCows,hatch}
     };
   }
 });
